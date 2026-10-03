@@ -2281,12 +2281,14 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               letter-spacing:.01em;
             }
             .xaaj-brand-story-home-closing{
-              max-width:470px;
-              margin:23px 0 31px!important;
-              color:#4b453e!important;
-              font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif!important;
-              font-size:18px!important;
-              line-height:1.45!important;
+              max-width:490px;
+              margin:0 0 31px!important;
+              color:#716a62!important;
+              font-family:'Gotham Book','Gotham',Arial,sans-serif!important;
+              font-size:12px!important;
+              font-weight:400!important;
+              line-height:1.75!important;
+              letter-spacing:.01em!important;
             }
             .xaaj-brand-story-homepage .xaaj-brand-story-split-button{
               display:inline-flex!important;
@@ -2385,7 +2387,11 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 line-height:1.72!important;
               }
               .xaaj-brand-story-home-closing{
-                font-size:17px!important;
+                font-family:'Gotham Book','Gotham',Arial,sans-serif!important;
+                font-size:12px!important;
+                font-weight:400!important;
+                line-height:1.75!important;
+                letter-spacing:.01em!important;
               }
             }
           `})]}),(0,$.jsx)(`section`,{className:`xaaj-horeca-bundled xaaj-cinema-reveal`,"data-xaaj-cinema-reveal":!0,"aria-label":`B2B collection`,children:(0,$.jsxs)(`div`,{className:`xaaj-horeca-bundled-inner`,children:[(0,$.jsx)(`h2`,{children:`Discover our B2B collections`}),(0,$.jsxs)(`div`,{className:`xaaj-horeca-bundled-grid`,children:[(0,$.jsxs)(Z,{to:`/enquiry`,className:`xaaj-horeca-bundled-main`,"aria-label":`B2B enquiry`,children:[(0,$.jsx)(`div`,{className:`xaaj-horeca-bundled-media`,children:(0,$.jsx)(`img`,{src:p.main.url,alt:p.main.alt,loading:`lazy`})}),(0,$.jsxs)(`div`,{className:`xaaj-horeca-bundled-label`,children:[`B2B `,(0,$.jsx)(Ud,{size:18,strokeWidth:1.25})]})]}),(0,$.jsxs)(`div`,{className:`xaaj-horeca-bundled-side`,children:[(0,$.jsx)(Z,{to:`/enquiry`,className:`xaaj-horeca-bundled-small`,"aria-label":`B2B enquiry`,children:(0,$.jsx)(`img`,{src:p.sideOne.url,alt:p.sideOne.alt,loading:`lazy`})}),(0,$.jsx)(Z,{to:`/enquiry`,className:`xaaj-horeca-bundled-small`,"aria-label":`B2B enquiry`,children:(0,$.jsx)(`img`,{src:p.sideTwo.url,alt:p.sideTwo.alt,loading:`lazy`})})]})]})]})}),(0,$.jsx)(`section`,{className:`xaaj-values-strip xaaj-cinema-reveal`,"data-xaaj-cinema-reveal":!0,"aria-label":`XAAJ values`,children:(0,$.jsxs)(`div`,{className:`xaaj-values-grid`,children:[(0,$.jsxs)(`article`,{className:`xaaj-value-card`,children:[(0,$.jsx)(`div`,{className:`xaaj-value-icon`,"aria-hidden":`true`,children:(0,$.jsx)(Yd,{size:42,strokeWidth:1.15})}),(0,$.jsx)(`h3`,{children:`Responsible Design`}),(0,$.jsxs)(`p`,{children:[`Designed with integrity and`,(0,$.jsx)(`br`,{}),`durably crafted for everyday`,(0,$.jsx)(`br`,{}),`use.`]})]}),(0,$.jsxs)(`article`,{className:`xaaj-value-card`,children:[(0,$.jsx)(`div`,{className:`xaaj-value-icon`,"aria-hidden":`true`,children:(0,$.jsx)(cf,{size:42,strokeWidth:1.15})}),(0,$.jsx)(`h3`,{children:`Transparent Pricing`}),(0,$.jsxs)(`p`,{children:[`We believe in accessible`,(0,$.jsx)(`br`,{}),`pricing and full transparency.`,(0,$.jsx)(`br`,{}),`Our pricing model is an open`,(0,$.jsx)(`br`,{}),`book.`]})]}),(0,$.jsxs)(`article`,{className:`xaaj-value-card`,children:[(0,$.jsx)(`div`,{className:`xaaj-value-icon`,"aria-hidden":`true`,children:(0,$.jsx)(gf,{size:42,strokeWidth:1.15})}),(0,$.jsx)(`h3`,{children:`Sustainable Sourcing`}),(0,$.jsxs)(`p`,{children:[`We only partner with people`,(0,$.jsx)(`br`,{}),`who put the earth, and its`,(0,$.jsx)(`br`,{}),`people, first.`]})]}),(0,$.jsxs)(`article`,{className:`xaaj-value-card`,children:[(0,$.jsx)(`div`,{className:`xaaj-value-icon`,"aria-hidden":`true`,children:(0,$.jsx)(Sf,{size:42,strokeWidth:1.15})}),(0,$.jsx)(`h3`,{children:`Giving Back`}),(0,$.jsxs)(`p`,{children:[`Thanks to Mealshare, every`,(0,$.jsx)(`br`,{}),`purchase directly donates a`,(0,$.jsx)(`br`,{}),`meal to a youth in need.`]})]})]})}),(0,$.jsx)(`style`,{children:`
@@ -5255,30 +5261,22 @@ The goal is not perfection. It is creating a corner that feels comfortable enoug
         }
 
         .xaaj-brand-story-copy p{
-          margin:0 0 18px;
+          margin:0 0 16px;
         }
 
+        /* Consistent editorial spacing between story paragraphs.
+           Emphasis paragraphs get only a subtle separation instead of large gaps. */
         .xaaj-brand-story-copy p:nth-child(8),
         .xaaj-brand-story-copy p:nth-child(15),
         .xaaj-brand-story-copy p:nth-child(25),
         .xaaj-brand-story-copy p:nth-child(31){
-          margin-top:32px;
-        }
-
-        .xaaj-brand-story-copy p:nth-child(8),
-        .xaaj-brand-story-copy p:nth-child(15),
-        .xaaj-brand-story-copy p:nth-child(25),
-        .xaaj-brand-story-copy p:nth-child(31),
-        .xaaj-brand-story-copy p:nth-child(32),
-        .xaaj-brand-story-copy p:nth-child(37){
-          color:#302d28;
-          font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;
-          font-size:19px;
-          line-height:1.35;
+          margin-top:22px;
         }
 
         .xaaj-brand-story-copy strong{
           color:#302d28;
+          font-family:'Gotham Book','Gotham',Arial,sans-serif;
+          font-size:inherit;
           font-weight:600;
         }
 
@@ -5343,16 +5341,14 @@ The goal is not perfection. It is creating a corner that feels comfortable enoug
           }
 
           .xaaj-brand-story-copy p{
-            margin-bottom:16px;
+            margin-bottom:14px;
           }
 
           .xaaj-brand-story-copy p:nth-child(8),
           .xaaj-brand-story-copy p:nth-child(15),
           .xaaj-brand-story-copy p:nth-child(25),
-          .xaaj-brand-story-copy p:nth-child(31),
-          .xaaj-brand-story-copy p:nth-child(32),
-          .xaaj-brand-story-copy p:nth-child(37){
-            font-size:18px;
+          .xaaj-brand-story-copy p:nth-child(31){
+            margin-top:20px;
           }
 
           .xaaj-brand-story-signoff{
@@ -5382,15 +5378,6 @@ The goal is not perfection. It is creating a corner that feels comfortable enoug
           .xaaj-brand-story-copy{
             font-size:11.5px;
             line-height:1.8;
-          }
-
-          .xaaj-brand-story-copy p:nth-child(8),
-          .xaaj-brand-story-copy p:nth-child(15),
-          .xaaj-brand-story-copy p:nth-child(25),
-          .xaaj-brand-story-copy p:nth-child(31),
-          .xaaj-brand-story-copy p:nth-child(32),
-          .xaaj-brand-story-copy p:nth-child(37){
-            font-size:17px;
           }
 
           .xaaj-brand-story-signoff{
