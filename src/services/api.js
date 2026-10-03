@@ -2,14 +2,10 @@
 // XAAJ API CONFIGURATION
 // ============================================================
 
-// TEMP: backend URL hardcoded for testing (Vercel backend).
-// Baad mein wapas env wala tareeka use kar sakte ho:
-// const API_URL = (
-//   import.meta.env.VITE_API_URL ||
-//   'http://localhost:7100/api'
-// ).replace(/\/$/, '')
-
-const API_URL = 'https://crockery-e-commer-iqwq.vercel.app/api'
+const API_URL = (
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:7100/api'
+).replace(/\/$/, '')
 
 
 // ============================================================
