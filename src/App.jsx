@@ -1718,12 +1718,78 @@ const isAdminPreviewMode = () => {
   }
 }
 
+function ProductPrice({ product, className = '' }) {
+  const price = Number(product?.price ?? 0)
+  const mrpRaw = product?.mrp ?? product?.old ?? product?.compareAtPrice ?? null
+  const mrp = Number(mrpRaw)
+
+  const hasSavedDiscount =
+    product?.discountPercent !== undefined &&
+    product?.discountPercent !== null &&
+    product?.discountPercent !== ''
+
+  let discountPercent = hasSavedDiscount
+    ? Number(product.discountPercent)
+    : (Number.isFinite(mrp) && mrp > 0 && price < mrp
+        ? ((mrp - price) / mrp) * 100
+        : 0)
+
+  if (!Number.isFinite(discountPercent) || discountPercent < 0) {
+    discountPercent = 0
+  }
+
+  discountPercent = Math.round(discountPercent * 100) / 100
+
+  const hasDiscount = discountPercent > 0 && Number.isFinite(mrp) && mrp > price
+  const showDiscountPercent = product?.showDiscountPercent !== false
+
+  if (!hasDiscount) {
+    const displayPrice = Number.isFinite(mrp) && mrp > 0 ? mrp : price
+
+    return (
+      <>
+        <div className={`xaaj-product-price ${className}`.trim()}>
+          <strong>{money(displayPrice)}</strong>
+          <span className="xaaj-product-price-mrp-label">MRP</span>
+        </div>
+        <style>{`
+          .xaaj-product-price{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#292621}
+          .xaaj-product-price strong{font-weight:500;color:#292621}
+          .xaaj-product-price del{color:#9b958b;text-decoration:line-through;text-decoration-thickness:1px}
+          .xaaj-product-price-mrp-label{color:#777168;font-size:.9em;letter-spacing:.02em}
+          .xaaj-product-discount{color:#8d4e3d;font-size:.9em;letter-spacing:.02em;white-space:nowrap}
+        `}</style>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className={`xaaj-product-price ${className}`.trim()}>
+        <strong>{money(price)}</strong>
+        <del>{money(mrp)} MRP</del>
+        {showDiscountPercent && (
+          <span className="xaaj-product-discount">
+            {discountPercent}% OFF
+          </span>
+        )}
+      </div>
+      <style>{`
+        .xaaj-product-price{display:flex;align-items:center;flex-wrap:wrap;gap:8px;color:#292621}
+        .xaaj-product-price strong{font-weight:500;color:#292621}
+        .xaaj-product-price del{color:#9b958b;text-decoration:line-through;text-decoration-thickness:1px}
+        .xaaj-product-price-mrp-label{color:#777168;font-size:.9em;letter-spacing:.02em}
+        .xaaj-product-discount{color:#8d4e3d;font-size:.9em;letter-spacing:.02em;white-space:nowrap}
+      `}</style>
+    </>
+  )
+}
+
 function ProductCard({ product }) {
   const { add, wish, toggleWish } = useStore()
   const [added, setAdded] = useState(false)
   const productId = product.id || product._id
   const liked = wish.includes(productId)
-  const secondary = product.images?.[1] || ''
 
   const handleAdd = event => {
     event.preventDefault()
@@ -1740,7 +1806,6 @@ function ProductCard({ product }) {
       <div className="xaaj-editorial-card-media">
         <Link to={`/product/${product.slug}`} aria-label={`View ${product.name}`}>
           <img className="primary" src={product.image} alt={product.name} loading="lazy" />
-          {secondary && <img className="secondary" src={secondary} alt="" aria-hidden="true" loading="lazy" />}
         </Link>
         {product.tag && <span className="xaaj-editorial-tag">{product.tag}</span>}
         <button
@@ -1759,10 +1824,10 @@ function ProductCard({ product }) {
       <div className="xaaj-editorial-card-copy">
         <span>{product.category || 'XAAJ Collection'}</span>
         <Link to={`/product/${product.slug}`}><h3>{product.name}</h3></Link>
-        <div><strong>{money(product.price)}</strong>{Number(product.old || 0) > Number(product.price || 0) && <del>{money(product.old)}</del>}</div>
+        <ProductPrice product={product} />
       </div>
       <style>{`
-        .xaaj-editorial-card{min-width:0;color:#2c2924}.xaaj-editorial-card-media{position:relative;background:#f1eee7;overflow:hidden;aspect-ratio:4/5}.xaaj-editorial-card-media>a{display:block;width:100%;height:100%}.xaaj-editorial-card-media img{width:100%;height:100%;display:block;object-fit:cover;transition:opacity .45s ease,transform .8s cubic-bezier(.22,1,.36,1)}.xaaj-editorial-card-media .secondary{position:absolute;inset:0;opacity:0}.xaaj-editorial-card:hover .secondary{opacity:1}.xaaj-editorial-card:hover .primary{transform:scale(1.018)}.xaaj-editorial-tag{position:absolute;left:10px;top:10px;background:#fffdf9;padding:5px 7px;font-size:7px;letter-spacing:1px;text-transform:uppercase}.xaaj-editorial-wish{position:absolute;right:10px;top:10px;width:31px;height:31px;border:0;border-radius:50%;background:rgba(255,253,249,.9);display:grid;place-items:center;color:#302d28;cursor:pointer}.xaaj-editorial-wish.liked{color:#9a4c3d}.xaaj-editorial-add{position:absolute;right:10px;bottom:10px;height:34px;min-width:34px;border:1px solid rgba(255,255,255,.8);background:rgba(255,253,249,.92);color:#292621;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:9px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;transition:all .25s}.xaaj-editorial-add span{display:none}.xaaj-editorial-add:hover,.xaaj-editorial-add.added{background:#2f7048;color:#fff;border-color:#2f7048}.xaaj-editorial-add:hover span,.xaaj-editorial-add.added span{display:inline}.xaaj-editorial-card-copy{padding:10px 1px 0}.xaaj-editorial-card-copy>span{display:block;color:#8a8379;font-size:8px;letter-spacing:1.3px;text-transform:uppercase;margin-bottom:5px}.xaaj-editorial-card-copy h3{margin:0 0 6px;font:400 15px 'Gotham Book','Gotham',Arial,sans-serif;line-height:1.2}.xaaj-editorial-card-copy a{text-decoration:none;color:inherit}.xaaj-editorial-card-copy>div{display:flex;align-items:center;gap:7px;font-size:11px}.xaaj-editorial-card-copy del{color:#9b958b}.xaaj-editorial-card-copy strong{font-weight:500}
+        .xaaj-editorial-card{min-width:0;color:#2c2924}.xaaj-editorial-card-media{position:relative;background:#f1eee7;overflow:hidden;aspect-ratio:4/5}.xaaj-editorial-card-media>a{display:block;width:100%;height:100%}.xaaj-editorial-card-media img{width:100%;height:100%;display:block;object-fit:cover}.xaaj-editorial-tag{position:absolute;left:10px;top:10px;background:#fffdf9;padding:5px 7px;font-size:7px;letter-spacing:1px;text-transform:uppercase}.xaaj-editorial-wish{position:absolute;right:10px;top:10px;width:31px;height:31px;border:0;border-radius:50%;background:rgba(255,253,249,.9);display:grid;place-items:center;color:#302d28;cursor:pointer}.xaaj-editorial-wish.liked{color:#9a4c3d}.xaaj-editorial-add{position:absolute;right:10px;bottom:10px;height:34px;min-width:34px;border:1px solid rgba(255,255,255,.8);background:rgba(255,253,249,.92);color:#292621;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;font-size:9px;text-transform:uppercase;letter-spacing:1px;cursor:pointer;transition:all .25s}.xaaj-editorial-add span{display:none}.xaaj-editorial-add:hover,.xaaj-editorial-add.added{background:#2f7048;color:#fff;border-color:#2f7048}.xaaj-editorial-add:hover span,.xaaj-editorial-add.added span{display:inline}.xaaj-editorial-card-copy{padding:10px 1px 0}.xaaj-editorial-card-copy>span{display:block;color:#8a8379;font-size:8px;letter-spacing:1.3px;text-transform:uppercase;margin-bottom:5px}.xaaj-editorial-card-copy h3{margin:0 0 6px;font:400 15px 'Gotham Book','Gotham',Arial,sans-serif;line-height:1.2}.xaaj-editorial-card-copy a{text-decoration:none;color:inherit}.xaaj-editorial-card-copy>div{display:flex;align-items:center;gap:7px;font-size:11px}.xaaj-editorial-card-copy del{color:#9b958b}.xaaj-editorial-card-copy strong{font-weight:500}
         @media(max-width:600px){.xaaj-editorial-card-media{aspect-ratio:3/4}.xaaj-editorial-card-copy h3{font-size:14px}.xaaj-editorial-add{min-width:32px;width:32px;padding:0}.xaaj-editorial-add span{display:none!important}}
         /* Final mobile header: Account icon sits between Search and Cart. */
         @media (max-width:850px){
@@ -3618,9 +3683,7 @@ function Home() {
                       <div className="xaaj-hero-product-copy">
                         <span>{product.category || 'XAAJ Collection'}</span>
                         <h3>{product.name}</h3>
-                        <div className="xaaj-hero-product-price">
-                          {money(product.price)}
-                        </div>
+                        <ProductPrice product={product} className="xaaj-hero-product-price" />
                       </div>
                     </Link>
                   ))}
@@ -7083,7 +7146,10 @@ function Product() {
           image: productImages[0] || '',
           images: productImages,
           old: raw.mrp ?? raw.compareAtPrice ?? null,
-          tag: raw.tags?.[0] || 'New',
+           mrp: raw.mrp ?? raw.compareAtPrice ?? null,
+           discountPercent: raw.discountPercent ?? 0,
+           showDiscountPercent: raw.showDiscountPercent !== false,
+           tag: raw.tags?.[0] || 'New',
           rating: Number(raw.rating || 0),
           reviews: Number(raw.reviewCount || 0),
           reviewCount: Number(raw.reviewCount || 0)
@@ -7286,18 +7352,8 @@ function Product() {
                 )}
               />
 
-              {/* Selling Price + MRP */}
-              <div className="detail-price">
-                <strong>
-                  {money(product.price)}
-                </strong>
-
-                {Number(product.old || 0) > Number(product.price || 0) && (
-                  <del style={{ marginLeft: '10px' }}>
-                    MRP {money(product.old)}
-                  </del>
-                )}
-              </div>
+              {/* Selling Price + MRP + Discount */}
+              <ProductPrice product={product} className="detail-price" />
 
               {/* Main Product Description */}
               <p>

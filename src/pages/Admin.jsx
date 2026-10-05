@@ -188,7 +188,9 @@ export default function Admin() {
     dinnerwareCollection: '',
     hsnCode: '',
     mrp: '',
+    discountPercent: 0,
     price: '',
+    showDiscountPercent: true,
     stock: '',
     shipping: { weight: '', length: '', breadth: '', height: '' },
     images: [''],
@@ -1339,7 +1341,32 @@ export default function Admin() {
       dinnerwareCollection: savedDinnerwareCollection,
       hsnCode: product.hsnCode || product.hsn || '',
       mrp: product.mrp ?? product.compareAtPrice ?? '',
+      discountPercent: (() => {
+        const hasSavedDiscount =
+          product.discountPercent !== undefined &&
+          product.discountPercent !== null
+
+        if (hasSavedDiscount) {
+          const saved = Number(product.discountPercent)
+          return Number.isFinite(saved)
+            ? Math.min(100, Math.max(0, saved))
+            : 0
+        }
+
+        const legacyMrp = Number(product.mrp ?? product.compareAtPrice ?? 0)
+        const legacyPrice = Number(product.price ?? 0)
+
+        if (legacyMrp > 0 && legacyPrice >= 0 && legacyPrice < legacyMrp) {
+          return Math.round(((legacyMrp - legacyPrice) / legacyMrp) * 100)
+        }
+
+        return 0
+      })(),
       price: product.price ?? '',
+      showDiscountPercent:
+        product.showDiscountPercent !== undefined
+          ? Boolean(product.showDiscountPercent)
+          : true,
       stock: product.stock ?? '',
       shipping: {
         weight: product.shipping?.weight ?? '',
@@ -1417,20 +1444,30 @@ export default function Admin() {
       return
     }
 
-    if (form.mrp === '' || Number(form.mrp) < 0) {
+    const mrp = Number(form.mrp)
+
+    if (form.mrp === '' || !Number.isFinite(mrp) || mrp <= 0) {
       setError('Please enter a valid MRP.')
       return
     }
 
-    if (form.price === '' || Number(form.price) < 0) {
-      setError('Please enter a valid selling price.')
+    let discountPercent = Number(form.discountPercent ?? 0)
+
+    if (
+      !Number.isFinite(discountPercent) ||
+      discountPercent < 0 ||
+      discountPercent > 100
+    ) {
+      setError('Discount must be between 0% and 100%.')
       return
     }
 
-    if (Number(form.price) > Number(form.mrp)) {
-      setError('Selling price cannot be higher than MRP.')
-      return
-    }
+    discountPercent = Math.round(discountPercent * 100) / 100
+
+    const calculatedPrice =
+      discountPercent > 0
+        ? Math.round(mrp - (mrp * discountPercent) / 100)
+        : mrp
 
     if (form.stock !== '' && Number(form.stock) < 0) {
       setError('Stock cannot be negative.')
@@ -1477,9 +1514,11 @@ export default function Admin() {
           ? form.dinnerwareCollection.trim() || null
           : null,
       hsnCode,
-      mrp: Number(form.mrp),
-      compareAtPrice: Number(form.mrp),
-      price: Number(form.price),
+      mrp,
+      compareAtPrice: mrp,
+      discountPercent,
+      price: calculatedPrice,
+      showDiscountPercent: Boolean(form.showDiscountPercent),
       stock:
         form.stock === ''
           ? 0
@@ -3531,41 +3570,173 @@ export default function Admin() {
                 required
               />
 
-              {/* MRP */}
-              <label>
-                MRP (Original Price) *
-              </label>
+              {/* Pricing */}
+              <div
+                style={{
+                  marginTop: '4px',
+                  padding: '18px',
+                  border: '1px solid #e5e5e5',
+                  borderRadius: '10px',
+                  background: '#faf9f6'
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    marginBottom: '14px'
+                  }}
+                >
+                  Product Pricing
+                </div>
 
-              <input
-                name="mrp"
-                value={form.mrp}
-                onChange={handleChange}
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="4500"
-                required
-              />
+                <label htmlFor="product-mrp">
+                  MRP *
+                </label>
 
-              <small>
-                This price will appear crossed out only when it is higher than the selling price.
-              </small>
+                <input
+                  id="product-mrp"
+                  name="mrp"
+                  value={form.mrp}
+                  onChange={handleChange}
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="1499"
+                  required
+                />
 
-              {/* Selling Price */}
-              <label>
-                Selling Price *
-              </label>
+                <small>
+                  Enter the original MRP. Selling price will be calculated automatically.
+                </small>
 
-              <input
-                name="price"
-                value={form.price}
-                onChange={handleChange}
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="2499"
-                required
-              />
+                <label htmlFor="product-discount" style={{ marginTop: '14px' }}>
+                  Discount (%)
+                </label>
+
+                <input
+                  id="product-discount"
+                  name="discountPercent"
+                  value={form.discountPercent}
+                  onChange={handleChange}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder="25"
+                />
+
+                <small>
+                  Enter 0 if there is no discount. Maximum discount is 100%.
+                </small>
+
+                <label htmlFor="product-selling-price" style={{ marginTop: '14px' }}>
+                  Selling Price (Auto)
+                </label>
+
+                <input
+                  id="product-selling-price"
+                  value={(() => {
+                    const currentMrp = Number(form.mrp)
+                    const currentDiscount = Number(form.discountPercent || 0)
+
+                    if (!Number.isFinite(currentMrp) || currentMrp <= 0) return ''
+                    if (!Number.isFinite(currentDiscount) || currentDiscount <= 0) {
+                      return currentMrp
+                    }
+
+                    return Math.round(
+                      currentMrp - (currentMrp * currentDiscount) / 100
+                    )
+                  })()}
+                  type="number"
+                  readOnly
+                  disabled
+                  aria-label="Automatically calculated selling price"
+                />
+
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.showDiscountPercent)}
+                    onChange={e =>
+                      setForm(prev => ({
+                        ...prev,
+                        showDiscountPercent: e.target.checked
+                      }))
+                    }
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  Show Discount % to customers
+                </label>
+
+                <div
+                  style={{
+                    marginTop: '16px',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    background: '#fff',
+                    border: '1px solid #e8e8e8'
+                  }}
+                >
+                  <strong style={{ display: 'block', marginBottom: '6px' }}>
+                    Customer Preview
+                  </strong>
+
+                  {(() => {
+                    const previewMrp = Number(form.mrp)
+                    const previewDiscount = Number(form.discountPercent || 0)
+                    const previewPrice =
+                      Number.isFinite(previewMrp) && previewMrp > 0
+                        ? previewDiscount > 0
+                          ? Math.round(
+                              previewMrp -
+                                (previewMrp * previewDiscount) / 100
+                            )
+                          : previewMrp
+                        : 0
+
+                    if (!previewMrp) {
+                      return <span>Enter MRP to see the customer price.</span>
+                    }
+
+                    return (
+                      <span>
+                        <strong>
+                          ₹{previewPrice.toLocaleString('en-IN')}
+                        </strong>{' '}
+
+                        {previewDiscount > 0 && (
+                          <>
+                            <del style={{ marginLeft: '6px' }}>
+                              ₹{previewMrp.toLocaleString('en-IN')} MRP
+                            </del>
+                            {form.showDiscountPercent && (
+                              <span style={{ marginLeft: '8px' }}>
+                                {previewDiscount}% OFF
+                              </span>
+                            )}
+                          </>
+                        )}
+
+                        {previewDiscount <= 0 && (
+                          <span style={{ marginLeft: '6px' }}>
+                            ₹{previewMrp.toLocaleString('en-IN')} MRP
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
 
               {/* Stock */}
               <label>
@@ -4276,10 +4447,23 @@ export default function Admin() {
                           ₹{Number(product.price || 0).toLocaleString('en-IN')}
                         </strong>
 
-                        {Number(product.mrp ?? product.compareAtPrice ?? 0) > Number(product.price || 0) && (
-                          <del style={{ marginLeft: '10px' }}>
-                            ₹{Number(product.mrp ?? product.compareAtPrice).toLocaleString('en-IN')}
-                          </del>
+                        {Number(product.mrp ?? product.compareAtPrice ?? 0) > Number(product.price || 0) ? (
+                          <>
+                            <del style={{ marginLeft: '10px' }}>
+                              ₹{Number(product.mrp ?? product.compareAtPrice).toLocaleString('en-IN')} MRP
+                            </del>
+
+                            {product.showDiscountPercent !== false &&
+                              Number(product.discountPercent || 0) > 0 && (
+                                <span style={{ marginLeft: '10px' }}>
+                                  {Number(product.discountPercent)}% OFF
+                                </span>
+                              )}
+                          </>
+                        ) : (
+                          <span style={{ marginLeft: '10px' }}>
+                            ₹{Number(product.mrp ?? product.compareAtPrice ?? product.price ?? 0).toLocaleString('en-IN')} MRP
+                          </span>
                         )}
 
                         <span
