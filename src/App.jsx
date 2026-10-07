@@ -142,38 +142,40 @@ const horecaDefaultMedia = {
 }
 
 // Homepage category hero cards are keyed by stable slugs.
-// Admin-managed media can replace these fallback images without changing
-// the category links or product/category filtering.
+// Hero media comes only from the Admin CMS.
+// Missing CMS media keeps the white XAAJ placeholder.
 const categoryHeroDefinitions = [
   {
     name: 'Drinkware',
-    slug: 'drinkware',
-    fallback:
-      'https://images.unsplash.com/photo-1577937927133-66ef06acdf18?auto=format&fit=crop&w=1200&q=88'
-  },
-  {
-    name: 'Gifting',
-    slug: 'gifting',
-    fallback: tableImage
-  },
-  {
-    name: 'Dinnerware',
-    slug: 'dinnerware',
-    fallback: dinnerSetsHeroImage
+    slug: 'drinkware'
   },
   {
     name: 'Serveware',
-    slug: 'serveware',
-    fallback:
-      'https://res.cloudinary.com/kswukbpp/image/upload/v1790269104/ChatGPT_Image_Sep_24_2026_10_27_52_PM.png'
+    slug: 'serveware'
+  },
+  {
+    name: 'Dinnerware',
+    slug: 'dinnerware'
+  },
+  {
+    name: 'Gifting',
+    slug: 'gifting'
   },
   {
     name: 'B2B',
     slug: 'b2b',
-    fallback: heroImage,
     isB2B: true
   }
 ]
+
+// XAAJ top-level collection order stays fixed. Only these subcategories
+// are exposed inside their respective collection menus.
+const shopSubcategories = {
+  Drinkware: ['Cups', 'Mugs'],
+  Serveware: ['Pasta Plate', 'Serving Bowl', 'Serving Platter'],
+  Dinnerware: [],
+  Gifting: ['Tea Set', 'Tea Cup Set']
+}
 
 const toCategoryHeroSlug = value =>
   String(value || '')
@@ -217,7 +219,7 @@ function Header() {
   const [announcementText, setAnnouncementText] = useState('Free shipping on orders above ₹1,000')
   const [announcementEnabled, setAnnouncementEnabled] = useState(true)
   const [homeScrolled, setHomeScrolled] = useState(false)
-  const [mobileDinnerwareOpen, setMobileDinnerwareOpen] = useState(false)
+  const [mobileSubcategoryOpen, setMobileSubcategoryOpen] = useState(null)
 
   const clearDrawerTimer = () => {
     if (drawerTimerRef.current) {
@@ -228,7 +230,7 @@ function Header() {
 
   const closeMenu = () => {
     clearDrawerTimer()
-    setMobileDinnerwareOpen(false)
+    setMobileSubcategoryOpen(null)
     setMenuOpen(false)
     setMenuClosing(true)
     drawerTimerRef.current = window.setTimeout(() => {
@@ -257,7 +259,7 @@ function Header() {
 
   const openMenu = () => {
     clearDrawerTimer()
-    setMobileDinnerwareOpen(false)
+    setMobileSubcategoryOpen(null)
     setCartOpen(false)
     setCartMounted(false)
     setCartClosing(false)
@@ -380,50 +382,62 @@ function Header() {
             </Link>
 
             <nav className="xaaj-ref-main-nav" aria-label="Collection navigation">
+              {['Drinkware', 'Serveware'].map(name => (
+                <div className="xaaj-ref-nav-dropdown" key={name}>
+                  <Link
+                    className={`xaaj-ref-nav-trigger ${new URLSearchParams(location.search).get('category') === name ? 'active' : ''}`}
+                    to={`/shop?category=${encodeURIComponent(name)}`}
+                    aria-haspopup="true"
+                  >
+                    <span>{name}</span>
+                    <ChevronDown className="xaaj-ref-nav-chevron" size={13} strokeWidth={1.35} />
+                  </Link>
+
+                  <div className="xaaj-ref-nav-menu" role="menu" aria-label={`${name} categories`}>
+                    {shopSubcategories[name].map(subcategory => (
+                      <Link
+                        key={subcategory}
+                        to={`/shop?category=${encodeURIComponent(name)}&subcategory=${encodeURIComponent(subcategory)}`}
+                        role="menuitem"
+                        onClick={closeAll}
+                      >
+                        {subcategory}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <Link
+                className={new URLSearchParams(location.search).get('category') === 'Dinnerware' ? 'active' : ''}
+                to="/shop?category=Dinnerware"
+              >
+                Dinnerware
+              </Link>
+
               <div className="xaaj-ref-nav-dropdown">
                 <Link
-                  className={`xaaj-ref-nav-trigger ${new URLSearchParams(location.search).get('category') === 'Dinnerware' ? 'active' : ''}`}
-                  to="/shop?category=Dinnerware"
+                  className={`xaaj-ref-nav-trigger ${new URLSearchParams(location.search).get('category') === 'Gifting' ? 'active' : ''}`}
+                  to="/shop?category=Gifting"
                   aria-haspopup="true"
                 >
-                  <span>Dinnerware</span>
+                  <span>Gifting</span>
                   <ChevronDown className="xaaj-ref-nav-chevron" size={13} strokeWidth={1.35} />
                 </Link>
 
-                <div className="xaaj-ref-nav-menu" role="menu" aria-label="Dinnerware categories">
-                  {['Speckled White', 'Dove Gray', 'Blush Pink', 'Beachgrass Green', 'Midnight Blue'].map(name => (
+                <div className="xaaj-ref-nav-menu" role="menu" aria-label="Gifting categories">
+                  {shopSubcategories.Gifting.map(subcategory => (
                     <Link
-                      key={name}
-                      to="/shop?category=Dinnerware"
+                      key={subcategory}
+                      to={`/shop?category=Gifting&subcategory=${encodeURIComponent(subcategory)}`}
                       role="menuitem"
                       onClick={closeAll}
                     >
-                      {name}
+                      {subcategory}
                     </Link>
                   ))}
                 </div>
               </div>
-
-              <Link
-                className={new URLSearchParams(location.search).get('category') === 'Drinkware' ? 'active' : ''}
-                to="/shop?category=Drinkware"
-              >
-                Drinkware
-              </Link>
-
-              <Link
-                className={new URLSearchParams(location.search).get('category') === 'Serveware' ? 'active' : ''}
-                to="/shop?category=Serveware"
-              >
-                Serveware
-              </Link>
-
-              <Link
-                className={new URLSearchParams(location.search).get('category') === 'Gifting' ? 'active' : ''}
-                to="/shop?category=Gifting"
-              >
-                Gifting
-              </Link>
 
               <Link
                 to="/enquiry"
@@ -542,28 +556,23 @@ function Header() {
         <aside className={`xaaj-ref-menu-drawer ${menuOpen ? 'is-open' : 'is-closing'}`} aria-label="Main menu">
           <div className="xaaj-ref-mobile-menu-content">
             <nav aria-label="Mobile collection navigation">
-              {!mobileDinnerwareOpen ? (
+              {!mobileSubcategoryOpen ? (
                 <>
-                  <button
-                    type="button"
-                    className="xaaj-ref-mobile-dinnerware-toggle"
-                    onClick={() => setMobileDinnerwareOpen(true)}
-                    aria-expanded="false"
-                  >
+                  {['Drinkware', 'Serveware', 'Gifting'].map(name => (
+                    <button
+                      key={name}
+                      type="button"
+                      className="xaaj-ref-mobile-dinnerware-toggle"
+                      onClick={() => setMobileSubcategoryOpen(name)}
+                      aria-expanded="false"
+                    >
+                      <span>{name}</span>
+                      <ArrowRight size={22} strokeWidth={1.15} />
+                    </button>
+                  ))}
+
+                  <Link to="/shop?category=Dinnerware" onClick={closeMenu}>
                     <span>Dinnerware</span>
-                    <ArrowRight size={22} strokeWidth={1.15} />
-                  </button>
-
-                  <Link to="/shop?category=Drinkware" onClick={closeMenu}>
-                    <span>Drinkware</span>
-                  </Link>
-
-                  <Link to="/shop?category=Serveware" onClick={closeMenu}>
-                    <span>Serveware</span>
-                  </Link>
-
-                  <Link to="/shop?category=Gifting" onClick={closeMenu}>
-                    <span>Gifting</span>
                   </Link>
 
                   <Link to="/enquiry" onClick={closeMenu}>
@@ -575,16 +584,20 @@ function Header() {
                   <button
                     type="button"
                     className="xaaj-ref-mobile-dinnerware-back"
-                    onClick={() => setMobileDinnerwareOpen(false)}
+                    onClick={() => setMobileSubcategoryOpen(null)}
                     aria-label="Back to collections"
                   >
                     <ArrowRight className="xaaj-ref-mobile-dinnerware-back-icon" size={22} strokeWidth={1.15} />
-                    <span>Dinnerware</span>
+                    <span>{mobileSubcategoryOpen}</span>
                   </button>
 
-                  {['Speckled White', 'Dove Gray', 'Blush Pink', 'Beachgrass Green', 'Midnight Blue'].map(name => (
-                    <Link key={name} to="/shop?category=Dinnerware" onClick={closeMenu}>
-                      <span>{name}</span>
+                  {(shopSubcategories[mobileSubcategoryOpen] || []).map(subcategory => (
+                    <Link
+                      key={subcategory}
+                      to={`/shop?category=${encodeURIComponent(mobileSubcategoryOpen)}&subcategory=${encodeURIComponent(subcategory)}`}
+                      onClick={closeMenu}
+                    >
+                      <span>{subcategory}</span>
                     </Link>
                   ))}
                 </>
@@ -609,12 +622,16 @@ function Header() {
             <div className="xaaj-ref-menu-columns">
               <div>
                 <span>DINING</span>
-                {['Dinner Sets', 'Plates', 'Bowls', 'Serveware'].map(name => (
-                  <button key={name} onClick={() => go(`/shop?category=${encodeURIComponent(name)}`)}>{name}</button>
+                <button onClick={() => go('/shop?category=Dinnerware')}>Dinnerware</button>
+                {shopSubcategories.Serveware.map(name => (
+                  <button key={name} onClick={() => go(`/shop?category=Serveware&subcategory=${encodeURIComponent(name)}`)}>{name}</button>
                 ))}
               </div>
               <div>
-                <button type="button" onClick={() => go('/shop?category=Drinkware')}>DRINKWARE</button>
+                <span>DRINKWARE</span>
+                {shopSubcategories.Drinkware.map(name => (
+                  <button key={name} onClick={() => go(`/shop?category=Drinkware&subcategory=${encodeURIComponent(name)}`)}>{name}</button>
+                ))}
               </div>
               <div>
                 <span>ABOUT XAAJ</span>
@@ -725,13 +742,13 @@ function Header() {
         .xaaj-ref-header-shell{position:relative;z-index:9000;width:100%;background:#fffdf9}
         .xaaj-ref-header-shell,.xaaj-ref-header-shell.xaaj-home-header,.xaaj-ref-header-shell.xaaj-home-header.is-scrolled{background:#ffffff!important}
         .xaaj-ref-header-shell .xaaj-ref-header,.xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-header{background:#ffffff!important}
-        .xaaj-ref-announcement{height:42px;max-height:42px;background:#252923;color:#f8f3e9;display:flex;align-items:center;justify-content:center;font-family:'Gotham Book','Gotham',Arial,sans-serif;font-size:11px;font-weight:400;letter-spacing:1.45px;line-height:1;text-transform:none;overflow:hidden;white-space:nowrap;transition:max-height .35s ease,opacity .25s ease,visibility .35s ease,padding .35s ease}
+        .xaaj-ref-announcement{height:42px;max-height:42px;background:#3A2C26;color:#f8f3e9;display:flex;align-items:center;justify-content:center;font-family:'Gotham Book','Gotham',Arial,sans-serif;font-size:11px;font-weight:400;letter-spacing:1.45px;line-height:1;text-transform:none;overflow:hidden;white-space:nowrap;transition:max-height .35s ease,opacity .25s ease,visibility .35s ease,padding .35s ease}
         .xaaj-ref-announcement::before,.xaaj-ref-announcement::after{display:none!important}
         .xaaj-ref-announcement.is-hidden{max-height:42px;height:42px;opacity:0;visibility:hidden;pointer-events:none}
         .xaaj-ref-header{height:144px;background:#fffdf9;border:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:start;padding:15px 4.2vw 0;position:relative;color:#302d28}
         .xaaj-ref-header-center{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:290px}
         .xaaj-ref-logo{display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;color:#302d28;line-height:1}
-        .xaaj-ref-logo img{width:96px;height:66px;object-fit:contain;object-position:center}
+        .xaaj-ref-logo img{width:115px;height:78px;object-fit:contain;object-position:center}
         .xaaj-ref-logo span{font-family:'Gotham Book','Gotham',Arial,sans-serif;font-size:7px;letter-spacing:2.4px;margin-top:-2px;color:#777168;text-transform:uppercase}
         .xaaj-ref-main-nav{
             display:flex;
@@ -933,7 +950,7 @@ function Header() {
         .xaaj-ref-header-shell.xaaj-home-header.is-scrolled{position:relative;top:auto}
         .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-header-center,.xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-logo,.xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-main-nav,.xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-actions{transform:none}
         .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-header{height:144px;padding-top:15px;align-items:start;border-bottom:1px solid rgba(48,45,40,.08);background:#fffdf9;box-shadow:0 6px 20px rgba(48,45,40,.035);backdrop-filter:none;-webkit-backdrop-filter:none}
-        .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-logo img{width:96px;height:66px}
+        .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-logo img{width:115px;height:78px}
         .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-logo span{display:block}
         .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-main-nav{margin-top:18px;gap:31px}
         .xaaj-ref-header-shell.xaaj-home-header.is-scrolled .xaaj-ref-actions{padding-top:18px}
@@ -1914,6 +1931,120 @@ function SectionHeading({
 
 
 // ============================================================
+// CATEGORY HERO MEDIA LOADING
+// ============================================================
+
+function XaajHeroImagePlaceholder() {
+  return (
+    <div
+      className="xaaj-hero-image-placeholder"
+      aria-hidden="true"
+    >
+      <span>XAAJ</span>
+      <i />
+    </div>
+  )
+}
+
+function XaajCategoryHeroMedia({
+  url,
+  alt,
+  mediaType = 'image',
+  loading = 'lazy',
+  fetchPriority
+}) {
+  const mediaRef = useRef(null)
+
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  // Reset ONLY when the actual CMS URL changes.
+  // This avoids the previous race where an already-cached image could
+  // fire onLoad and then a useEffect immediately changed loaded back to false.
+  useEffect(() => {
+    setLoaded(false)
+    setFailed(false)
+  }, [url])
+
+  // Important for browser-cache hits:
+  // if the browser already has the image before React's onLoad callback
+  // is observed, complete + naturalWidth makes the loaded state reliable.
+  useLayoutEffect(() => {
+    const node = mediaRef.current
+
+    if (
+      mediaType === 'image' &&
+      node &&
+      node.complete &&
+      node.naturalWidth > 0
+    ) {
+      setLoaded(true)
+    }
+
+    if (
+      mediaType === 'video' &&
+      node &&
+      node.readyState >= 2
+    ) {
+      setLoaded(true)
+    }
+  }, [url, mediaType])
+
+  const handleLoad = () => {
+    setLoaded(true)
+    setFailed(false)
+  }
+
+  const handleError = () => {
+    setLoaded(false)
+    setFailed(true)
+  }
+
+  // No CMS media means: keep the white XAAJ placeholder.
+  if (!url || failed) {
+    return (
+      <div className="xaaj-reference-hero-media-shell is-loaded">
+        <XaajHeroImagePlaceholder />
+      </div>
+    )
+  }
+
+  return (
+    <div className={`xaaj-reference-hero-media-shell ${loaded ? 'is-loaded' : ''}`}>
+      {!loaded && <XaajHeroImagePlaceholder />}
+
+      {mediaType === 'video' ? (
+        <video
+          ref={mediaRef}
+          src={url}
+          muted
+          autoPlay
+          loop
+          playsInline
+          preload="auto"
+          aria-label={alt}
+          onLoadedData={handleLoad}
+          onCanPlay={handleLoad}
+          onError={handleError}
+        />
+      ) : (
+        <img
+          ref={mediaRef}
+          src={url}
+          alt={alt}
+          loading={loading}
+          fetchPriority={fetchPriority}
+          decoding="async"
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      )}
+    </div>
+  )
+}
+
+
+// ============================================================
 // HOME PAGE
 // ============================================================
 
@@ -1928,6 +2059,7 @@ function Home() {
   const categoryItems = Array.isArray(categories) ? categories.slice(0, 5) : []
 
   const [categoryHeroMedia, setCategoryHeroMedia] = useState({})
+  const [categoryHeroCmsResolved, setCategoryHeroCmsResolved] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -1946,7 +2078,12 @@ function Home() {
           result?.data ||
           []
 
-        if (!Array.isArray(data) || cancelled) return
+        if (cancelled) return
+
+        if (!Array.isArray(data)) {
+          setCategoryHeroCmsResolved(true)
+          return
+        }
 
         const mediaBySlug = {}
 
@@ -1986,12 +2123,34 @@ function Home() {
 
         if (!cancelled) {
           setCategoryHeroMedia(mediaBySlug)
+          setCategoryHeroCmsResolved(true)
+
+          // Warm the browser cache for the two visible CMS images.
+          // The component still waits for its own onLoad before the
+          // image becomes visible.
+          categoryHeroDefinitions.slice(0, 2).forEach(category => {
+            const mediaUrl = mediaBySlug[category.slug]?.url
+
+            if (
+              !mediaUrl ||
+              getCategoryHeroMediaType(
+                mediaUrl,
+                mediaBySlug[category.slug]?.mediaType
+              ) !== 'image'
+            ) {
+              return
+            }
+
+            const img = new Image()
+            img.decoding = 'async'
+            img.src = mediaUrl
+          })
         }
       } catch (error) {
-        // The existing category images remain the fallback when CMS data
-        // is unavailable, so a CMS/network failure does not break the hero.
+        // CMS failure leaves the affected card on the white XAAJ placeholder.
         if (!cancelled) {
           console.error('Category hero CMS load error:', error)
+          setCategoryHeroCmsResolved(true)
         }
       }
     }
@@ -3095,6 +3254,9 @@ function Home() {
             .xaaj-cinema-home *{scroll-behavior:auto!important}
             .xaaj-cinema-reveal{opacity:1;transform:none}
             .xaaj-category-gallery-card{opacity:1!important;transform:none!important;clip-path:none!important}
+            .xaaj-hero-image-placeholder i{animation:none!important}
+            .xaaj-reference-hero-media-shell > img,
+            .xaaj-reference-hero-media-shell > video{transition:none!important}
           }
 
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap');
@@ -3153,23 +3315,93 @@ function Home() {
             height:659px;
           }
 
-          .xaaj-reference-hero-card img,
-          .xaaj-reference-hero-card video{
+          .xaaj-reference-hero-media-shell{
+            position:relative;
+            overflow:hidden;
             width:100%;
-            height:auto;
             flex:1 1 auto;
             min-height:0;
+            background:#ffffff;
+          }
+
+          .xaaj-reference-hero-media-shell > img,
+          .xaaj-reference-hero-media-shell > video{
+            position:absolute;
+            inset:0;
+            width:100%;
+            height:100%;
             display:block;
             object-fit:cover;
-            transition:transform 1.1s cubic-bezier(.22,1,.36,1);
+            opacity:0;
+            transform:scale(1.01);
+            transition:
+              opacity .6s cubic-bezier(.22,1,.36,1),
+              transform 1.1s cubic-bezier(.22,1,.36,1);
+            will-change:opacity,transform;
+          }
+
+          .xaaj-reference-hero-media-shell.is-loaded > img,
+          .xaaj-reference-hero-media-shell.is-loaded > video{
+            opacity:1;
+            transform:scale(1);
+          }
+
+          .xaaj-reference-hero-media-shell.is-loaded .xaaj-hero-image-placeholder{
+            opacity:0;
+            visibility:hidden;
+            pointer-events:none;
+            transition:opacity .45s cubic-bezier(.22,1,.36,1), visibility 0s linear .45s;
+          }
+
+          .xaaj-hero-image-placeholder{
+            position:absolute;
+            inset:0;
+            z-index:2;
+            display:grid;
+            place-items:center;
+            overflow:hidden;
+            background:#ffffff;
+            color:rgba(48,45,40,.20);
+            pointer-events:none;
+            transition:opacity .35s ease, visibility .35s ease;
+          }
+
+          .xaaj-hero-image-placeholder span{
+            position:relative;
+            z-index:2;
+            font-family:'Cormorant Garamond',Georgia,"Times New Roman",serif;
+            font-size:30px;
+            font-weight:400;
+            letter-spacing:.34em;
+            line-height:1;
+            transform:translateX(.17em);
+          }
+
+          .xaaj-hero-image-placeholder i{
+            position:absolute;
+            inset:-20% -55%;
+            background:linear-gradient(
+              105deg,
+              transparent 40%,
+              rgba(48,45,40,.025) 48%,
+              rgba(255,255,255,.78) 50%,
+              rgba(48,45,40,.025) 52%,
+              transparent 60%
+            );
+            animation:xaajHeroImageShimmer 2.8s ease-in-out infinite;
+          }
+
+          @keyframes xaajHeroImageShimmer{
+            from{transform:translateX(-28%)}
+            to{transform:translateX(28%)}
           }
 
           .xaaj-reference-hero-card:hover{
             border-color:rgba(48,45,40,.34);
           }
 
-          .xaaj-reference-hero-card:hover img,
-          .xaaj-reference-hero-card:hover video{
+          .xaaj-reference-hero-card:hover .xaaj-reference-hero-media-shell > img,
+          .xaaj-reference-hero-card:hover .xaaj-reference-hero-media-shell > video{
             transform:scale(1.025);
           }
 
@@ -3187,7 +3419,7 @@ function Home() {
             flex-direction:column;
             min-width:0;
             overflow:hidden;
-            background:rgb(239,236,236);
+            background:#ffffff;
             color:#292722;
             text-decoration:none;
             border:1px solid rgba(37,37,37,.20);
@@ -3199,17 +3431,13 @@ function Home() {
             border-color:rgba(48,45,40,.34);
           }
 
-          .xaaj-reference-hero-bottom-card img,
-          .xaaj-reference-hero-bottom-card video{
-            width:100%;
+          .xaaj-reference-hero-bottom-card .xaaj-reference-hero-media-shell{
+            flex:0 0 380px;
             height:380px;
-            display:block;
-            object-fit:cover;
-            transition:transform 1.1s cubic-bezier(.22,1,.36,1);
           }
 
-          .xaaj-reference-hero-bottom-card:hover img,
-          .xaaj-reference-hero-bottom-card:hover video{
+          .xaaj-reference-hero-bottom-card:hover .xaaj-reference-hero-media-shell > img,
+          .xaaj-reference-hero-bottom-card:hover .xaaj-reference-hero-media-shell > video{
             transform:scale(1.025);
           }
 
@@ -3458,9 +3686,9 @@ function Home() {
               gap:14px;
             }
 
-            .xaaj-reference-hero-bottom-card img,
-            .xaaj-reference-hero-bottom-card video{
+            .xaaj-reference-hero-bottom-card .xaaj-reference-hero-media-shell{
               height:330px;
+              flex:0 0 330px;
             }
 
             .xaaj-reference-hero-label{
@@ -3500,9 +3728,9 @@ function Home() {
               margin-top:0;
             }
 
-            .xaaj-reference-hero-bottom-card img,
-            .xaaj-reference-hero-bottom-card video{
+            .xaaj-reference-hero-bottom-card .xaaj-reference-hero-media-shell{
               height:250px;
+              flex:0 0 250px;
             }
 
             .xaaj-reference-hero-label{
@@ -3535,7 +3763,6 @@ function Home() {
           <div className="xaaj-reference-hero-grid">
 
             {categoryHeroItems.slice(0, 2).map((category, index) => {
-              const mediaUrl = category.url || category.fallback
               const mediaAlt = category.alt || `XAAJ ${category.name} collection`
 
               return (
@@ -3545,23 +3772,18 @@ function Home() {
                   to={category.isB2B ? '/enquiry' : `/shop?category=${encodeURIComponent(category.name)}`}
                   aria-label={category.isB2B ? 'B2B enquiry' : `Shop ${category.name}`}
                 >
-                  {category.mediaType === 'video' ? (
-                    <video
-                      src={mediaUrl}
-                      muted
-                      autoPlay
-                      loop
-                      playsInline
-                      preload="metadata"
-                      aria-label={mediaAlt}
+                  {categoryHeroCmsResolved ? (
+                    <XaajCategoryHeroMedia
+                      url={category.url}
+                      alt={mediaAlt}
+                      mediaType={category.mediaType}
+                      loading="eager"
+                      fetchPriority="high"
                     />
                   ) : (
-                    <img
-                      src={mediaUrl}
-                      alt={mediaAlt}
-                      loading={index === 0 ? 'eager' : 'lazy'}
-                      fetchPriority={index === 0 ? 'high' : undefined}
-                    />
+                    <div className="xaaj-reference-hero-media-shell">
+                      <XaajHeroImagePlaceholder />
+                    </div>
                   )}
 
                   <span className="xaaj-reference-hero-label">
@@ -3575,7 +3797,6 @@ function Home() {
             {/* Bottom three categories */}
             <div className="xaaj-reference-hero-bottom">
               {categoryHeroItems.slice(2).map(category => {
-                const mediaUrl = category.url || category.fallback
                 const mediaAlt = category.alt || `XAAJ ${category.name} collection`
 
                 return (
@@ -3585,22 +3806,17 @@ function Home() {
                     to={category.isB2B ? '/enquiry' : `/shop?category=${encodeURIComponent(category.name)}`}
                     aria-label={category.isB2B ? 'B2B enquiry' : `Shop ${category.name}`}
                   >
-                    {category.mediaType === 'video' ? (
-                      <video
-                        src={mediaUrl}
-                        muted
-                        autoPlay
-                        loop
-                        playsInline
-                        preload="metadata"
-                        aria-label={mediaAlt}
-                      />
-                    ) : (
-                      <img
-                        src={mediaUrl}
+                    {categoryHeroCmsResolved ? (
+                      <XaajCategoryHeroMedia
+                        url={category.url}
                         alt={mediaAlt}
+                        mediaType={category.mediaType}
                         loading="lazy"
                       />
+                    ) : (
+                      <div className="xaaj-reference-hero-media-shell">
+                        <XaajHeroImagePlaceholder />
+                      </div>
                     )}
 
                     <span className="xaaj-reference-hero-label">
@@ -3998,16 +4214,16 @@ function Home() {
         <section
           className="xaaj-horeca-bundled xaaj-cinema-reveal"
           data-xaaj-cinema-reveal
-          aria-label="B2B collection"
+          aria-label="Festive Gifting"
         >
           <div className="xaaj-horeca-bundled-inner">
-            <h2>Discover our B2B collections</h2>
+            <h2>Festive Gifting</h2>
 
             <div className="xaaj-horeca-bundled-grid">
               <Link
-                to="/enquiry"
+                to="/shop?category=Gifting"
                 className="xaaj-horeca-bundled-main"
-                aria-label="B2B enquiry"
+                aria-label="Explore Festive Gifting"
               >
                 <div className="xaaj-horeca-bundled-media">
                   <img
@@ -4018,15 +4234,15 @@ function Home() {
                 </div>
 
                 <div className="xaaj-horeca-bundled-label">
-                  B2B <ArrowRight size={18} strokeWidth={1.25} />
+                  Festive Gifting <ArrowRight size={18} strokeWidth={1.25} />
                 </div>
               </Link>
 
               <div className="xaaj-horeca-bundled-side">
                 <Link
-                  to="/enquiry"
+                  to="/shop?category=Gifting"
                   className="xaaj-horeca-bundled-small"
-                  aria-label="B2B enquiry"
+                  aria-label="Explore Festive Gifting"
                 >
                   <img
                     src={horecaMedia.sideOne.url}
@@ -4036,9 +4252,9 @@ function Home() {
                 </Link>
 
                 <Link
-                  to="/enquiry"
+                  to="/shop?category=Gifting"
                   className="xaaj-horeca-bundled-small"
-                  aria-label="B2B enquiry"
+                  aria-label="Explore Festive Gifting"
                 >
                   <img
                     src={horecaMedia.sideTwo.url}
@@ -5527,7 +5743,7 @@ function Footer() {
         .xaaj-reference-footer{
           width:100%;
           overflow:hidden;
-          background:#272d29;
+          background:#271e19;
           color:#f5f2ea;
           font-family:'Gotham Book','Gotham',Arial,sans-serif;
         }
@@ -6497,9 +6713,9 @@ function Footer() {
         <div className="xaaj-reference-footer-column xaaj-reference-footer-shop">
           <h4>Shop</h4>
           <nav aria-label="Shop">
-            <Link to="/shop?category=Dinnerware">Dinnerware</Link>
             <Link to="/shop?category=Drinkware">Drinkware</Link>
             <Link to="/shop?category=Serveware">Serveware</Link>
+            <Link to="/shop?category=Dinnerware">Dinnerware</Link>
             <Link to="/shop?category=Gifting">Gifting</Link>
             <Link to="/enquiry">B2B</Link>
           </nav>
@@ -6523,9 +6739,9 @@ function Footer() {
             <ChevronDown size={17} strokeWidth={1.2} />
           </summary>
           <nav aria-label="Mobile Shop">
-            <Link to="/shop?category=Dinnerware">Dinnerware</Link>
             <Link to="/shop?category=Drinkware">Drinkware</Link>
             <Link to="/shop?category=Serveware">Serveware</Link>
+            <Link to="/shop?category=Dinnerware">Dinnerware</Link>
             <Link to="/shop?category=Gifting">Gifting</Link>
             <Link to="/enquiry">B2B</Link>
           </nav>
@@ -6670,6 +6886,7 @@ function Shop() {
   const location = useLocation()
   const query = new URLSearchParams(location.search)
   const category = query.get('category')
+  const subcategory = query.get('subcategory')
   const search = query.get('search')
   const filter = query.get('filter')
 
@@ -6685,21 +6902,35 @@ function Shop() {
 
   let list = Array.isArray(liveProducts) ? [...liveProducts] : []
 
-  if (category) {
+  if (category && subcategory) {
+    const normalizedCategory = category.toLowerCase().trim()
+    const normalizedSubcategory = subcategory.toLowerCase().trim()
+
+    list = list.filter(product => {
+      const productCategory = String(product.category || '').toLowerCase().trim()
+      const productSubcategory = String(
+        product.subcategory || product.subCategory || product.sub_category || ''
+      ).toLowerCase().trim()
+
+      const matchesSubcategory =
+        productSubcategory === normalizedSubcategory ||
+        productCategory === normalizedSubcategory
+
+      const matchesCategory =
+        productCategory === normalizedCategory ||
+        productCategory.includes(normalizedCategory) ||
+        productSubcategory === normalizedSubcategory
+
+      return matchesCategory && matchesSubcategory
+    })
+  } else if (category) {
     const normalizedCategory = category.toLowerCase()
 
-    if (normalizedCategory === 'dinnerware') {
-      const dinnerwareCategories = ['dinner sets', 'plates', 'bowls', 'cups & mugs']
-      list = list.filter(product =>
-        dinnerwareCategories.includes(String(product.category || '').toLowerCase())
-      )
-    } else {
-      list = list.filter(product =>
-        `${product.name || ''} ${product.category || ''}`
-          .toLowerCase()
-          .includes(normalizedCategory)
-      )
-    }
+    list = list.filter(product =>
+      `${product.name || ''} ${product.category || ''}`
+        .toLowerCase()
+        .includes(normalizedCategory)
+    )
   }
 
   if (search) {

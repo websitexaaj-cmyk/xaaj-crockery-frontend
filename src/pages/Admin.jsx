@@ -165,13 +165,14 @@ export default function Admin() {
   // =========================
   // Product Form State
   // =========================
-  const dinnerwareSubcategories = [
-    'Speckled White',
-    'Dove Gray',
-    'Blush Pink',
-    'Beachgrass Green',
-    'Midnight Blue'
-  ]
+  // Category-specific subcategories.
+  // Top-level categories remain unchanged.
+  const categorySubcategories = {
+    Dinnerware: [],
+    Drinkware: ['Cups', 'Mugs'],
+    Serveware: ['Pasta Plate', 'Serving Bowl', 'Serving Platter'],
+    Gifting: ['Tea Set', 'Tea Cup Set']
+  }
 
   const productCategoryOptions = [
     'Dinnerware',
@@ -185,7 +186,7 @@ export default function Admin() {
     slug: '',
     description: '',
     category: '',
-    dinnerwareCollection: '',
+    subcategory: '',
     hsnCode: '',
     mrp: '',
     discountPercent: 0,
@@ -1310,22 +1311,10 @@ export default function Admin() {
     const legacyDinnerwareCategories = new Set([
       'Dinner Sets',
       'Plates',
-      'Bowls',
-      'Cups & Mugs'
+      'Bowls'
     ])
 
     const savedCategory = String(product.category || '').trim()
-    const rawDinnerwareCollection =
-      product.dinnerwareCollection ||
-      product.dinnerwareSubcategory ||
-      product.dinnerwareType ||
-      product.subcategory ||
-      ''
-
-    const savedDinnerwareCollection = dinnerwareSubcategories.includes(rawDinnerwareCollection)
-      ? rawDinnerwareCollection
-      : ''
-
     const normalizedCategory =
       legacyDinnerwareCategories.has(savedCategory)
         ? 'Dinnerware'
@@ -1333,12 +1322,27 @@ export default function Admin() {
           ? savedCategory
           : savedCategory
 
+    const rawSubcategory =
+      product.subcategory ||
+      product.dinnerwareCollection ||
+      product.dinnerwareSubcategory ||
+      product.dinnerwareType ||
+      ''
+
+    const allowedSubcategories =
+      categorySubcategories[normalizedCategory] || []
+
+    const savedSubcategory =
+      allowedSubcategories.includes(rawSubcategory)
+        ? rawSubcategory
+        : ''
+
     setForm({
       name: product.name || '',
       slug: product.slug || '',
       description: product.description || '',
       category: normalizedCategory,
-      dinnerwareCollection: savedDinnerwareCollection,
+      subcategory: savedSubcategory,
       hsnCode: product.hsnCode || product.hsn || '',
       mrp: product.mrp ?? product.compareAtPrice ?? '',
       discountPercent: (() => {
@@ -1509,10 +1513,10 @@ export default function Admin() {
       slug: form.slug.trim().toLowerCase(),
       description: form.description.trim(),
       category: form.category.trim(),
-      dinnerwareCollection:
-        form.category === 'Dinnerware'
-          ? form.dinnerwareCollection.trim() || null
-          : null,
+      subcategory:
+        categorySubcategories[form.category]?.includes(form.subcategory)
+          ? form.subcategory.trim()
+          : '',
       hsnCode,
       mrp,
       compareAtPrice: mrp,
@@ -3499,13 +3503,12 @@ export default function Admin() {
                 name="category"
                 value={form.category}
                 onChange={event => {
-                  handleChange(event)
-                  if (event.target.value !== 'Dinnerware') {
-                    setForm(prev => ({
-                      ...prev,
-                      dinnerwareCollection: ''
-                    }))
-                  }
+                  const category = event.target.value
+                  setForm(prev => ({
+                    ...prev,
+                    category,
+                    subcategory: ''
+                  }))
                 }}
                 required
               >
@@ -3519,39 +3522,43 @@ export default function Admin() {
                 ))}
               </select>
 
-              {form.category === 'Dinnerware' && (
-                <div
-                  style={{
-                    padding: '14px 16px',
-                    marginTop: '4px',
-                    border: '1px solid #e1d9cf',
-                    borderRadius: '12px',
-                    background: '#fffdf9'
-                  }}
-                >
-                  <label htmlFor="dinnerware-subcategory">
-                    Dinnerware collection <span style={{ color: '#948b81', fontWeight: 400 }}>(Optional)</span>
-                  </label>
-                  <select
-                    id="dinnerware-subcategory"
-                    name="dinnerwareCollection"
-                    value={form.dinnerwareCollection}
-                    onChange={handleChange}
+              {form.category &&
+                (categorySubcategories[form.category] || []).length > 0 && (
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      marginTop: '4px',
+                      border: '1px solid #e1d9cf',
+                      borderRadius: '12px',
+                      background: '#fffdf9'
+                    }}
                   >
-                    <option value="">
-                      Select collection (optional)
-                    </option>
-                    {dinnerwareSubcategories.map(type => (
-                      <option key={type} value={type}>
-                        {type}
+                    <label htmlFor="product-subcategory">
+                      Subcategory <span style={{ color: '#948b81', fontWeight: 400 }}>(Optional)</span>
+                    </label>
+
+                    <select
+                      id="product-subcategory"
+                      name="subcategory"
+                      value={form.subcategory}
+                      onChange={handleChange}
+                    >
+                      <option value="">
+                        Select subcategory (optional)
                       </option>
-                    ))}
-                  </select>
-                  <small style={{ display: 'block', marginTop: '8px' }}>
-                    You can leave this blank. The product will still be saved under Dinnerware.
-                  </small>
-                </div>
-              )}
+
+                      {(categorySubcategories[form.category] || []).map(subcategory => (
+                        <option key={subcategory} value={subcategory}>
+                          {subcategory}
+                        </option>
+                      ))}
+                    </select>
+
+                    <small style={{ display: 'block', marginTop: '8px' }}>
+                      Select a subcategory for {form.category}.
+                    </small>
+                  </div>
+                )}
 
               {/* HSN Code */}
               <label htmlFor="product-hsn-code">
