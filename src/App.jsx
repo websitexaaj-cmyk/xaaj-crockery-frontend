@@ -812,6 +812,19 @@ function Header() {
             transform:translateX(-50%) rotate(45deg);
           }
 
+          /* Invisible hover bridge — keeps the dropdown open while
+             moving the pointer from the trigger to the submenu. */
+          .xaaj-ref-nav-menu::after{
+            content:"";
+            position:absolute;
+            top:-14px;
+            left:0;
+            right:0;
+            height:14px;
+            background:transparent;
+            pointer-events:auto;
+          }
+
           .xaaj-ref-nav-dropdown:hover .xaaj-ref-nav-menu,
           .xaaj-ref-nav-dropdown:focus-within .xaaj-ref-nav-menu{
             opacity:1;
