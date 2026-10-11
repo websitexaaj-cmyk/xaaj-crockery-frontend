@@ -4085,11 +4085,12 @@ function Home() {
             }
             .xaaj-brand-story-home-lead{
               margin:0 0 27px!important;
-              color:#413c36!important;
-              font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif!important;
-              font-size:22px!important;
-              line-height:1.35!important;
-              letter-spacing:-.01em;
+              color:#716a62!important;
+              font-family:'Gotham Book','Gotham',Arial,sans-serif!important;
+              font-size:12px!important;
+              font-weight:400!important;
+              line-height:1.75!important;
+              letter-spacing:.01em!important;
             }
             .xaaj-brand-story-home-lead strong{
               font-weight:600!important;
@@ -4148,10 +4149,10 @@ function Home() {
             }
             .xaaj-brand-story-home-watermark{
               position:absolute;
-              right:-38px;
-              bottom:-42px;
-              width:300px;
-              height:300px;
+              right:0;
+              bottom:0;
+              width:260px;
+              height:260px;
               object-fit:contain;
               opacity:.055;
               filter:grayscale(1);
@@ -4181,13 +4182,14 @@ function Home() {
                 font-size:clamp(42px,11vw,58px)!important;
               }
               .xaaj-brand-story-home-lead{
-                font-size:20px!important;
+                font-size:12px!important;
+                line-height:1.75!important;
               }
               .xaaj-brand-story-home-watermark{
-                width:220px;
-                height:220px;
-                right:-35px;
-                bottom:-30px;
+                width:200px;
+                height:200px;
+                right:0;
+                bottom:0;
               }
             }
             @media(max-width:520px){
@@ -4204,7 +4206,8 @@ function Home() {
                 margin-bottom:25px!important;
               }
               .xaaj-brand-story-home-lead{
-                font-size:19px!important;
+                font-size:11.5px!important;
+                line-height:1.72!important;
               }
               .xaaj-brand-story-homepage .xaaj-brand-story-split-copy p:not(.xaaj-brand-story-home-lead):not(.xaaj-brand-story-home-closing){
                 font-size:11.5px!important;
