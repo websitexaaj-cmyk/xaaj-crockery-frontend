@@ -124,20 +124,20 @@ const dinnerSetsHeroImage =
 const cupsMugsHeroImage =
   'https://res.cloudinary.com/kswukbpp/image/upload/v1790269006/ChatGPT_Image_Sep_24_2026_10_26_10_PM.png'
 
-// Horeca collection gallery defaults. Admin CMS media can replace any slot;
-// clearing a CMS slot falls back to the original image so the section stays visible.
+// Festive Gifting gallery media is CMS-controlled only.
+// Empty slots intentionally show the existing shimmer until media is uploaded in Admin.
 const horecaDefaultMedia = {
   main: {
-    url: tableImage,
-    alt: 'XAAJ Horeca collection'
+    url: '',
+    alt: 'XAAJ Festive Gifting crockery'
   },
   sideOne: {
-    url: dinnerSetsHeroImage,
-    alt: 'XAAJ Horeca tableware'
+    url: '',
+    alt: 'XAAJ Festive Gifting tableware'
   },
   sideTwo: {
-    url: 'https://res.cloudinary.com/kswukbpp/image/upload/v1790269104/ChatGPT_Image_Sep_24_2026_10_27_52_PM.png',
-    alt: 'XAAJ Horeca serveware'
+    url: '',
+    alt: 'XAAJ Festive Gifting serveware'
   }
 }
 
@@ -1959,6 +1959,96 @@ function XaajHeroImagePlaceholder() {
   )
 }
 
+function XaajShimmerImage({ src, alt, loading = 'lazy' }) {
+  const imageRef = useRef(null)
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  // Reset shimmer state only when the CMS-provided URL changes.
+  useEffect(() => {
+    setLoaded(false)
+    setFailed(false)
+  }, [src])
+
+  // Cached images may already be complete before onLoad is attached.
+  useLayoutEffect(() => {
+    const image = imageRef.current
+    if (image && image.complete && image.naturalWidth > 0) {
+      setLoaded(true)
+    }
+  }, [src])
+
+  // No CMS media (or a failed URL) means shimmer stays in place; never render a broken image.
+  if (!src || failed) {
+    return <span className="xaaj-image-shimmer" aria-hidden="true" />
+  }
+
+  return (
+    <>
+      <span
+        className={`xaaj-image-shimmer ${loaded ? 'is-loaded' : ''}`}
+        aria-hidden="true"
+      />
+      <img
+        ref={imageRef}
+        className={`xaaj-shimmer-image ${loaded ? 'is-loaded' : ''}`}
+        src={src}
+        alt={alt}
+        loading={loading}
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setLoaded(false)
+          setFailed(true)
+        }}
+      />
+    </>
+  )
+}
+
+function XaajShimmerVideo({ src, alt }) {
+  const videoRef = useRef(null)
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    setLoaded(false)
+    setFailed(false)
+  }, [src])
+
+  useLayoutEffect(() => {
+    const video = videoRef.current
+    if (video && video.readyState >= 2) setLoaded(true)
+  }, [src])
+
+  if (!src || failed) {
+    return <span className="xaaj-image-shimmer" aria-hidden="true" />
+  }
+
+  return (
+    <>
+      <span className={`xaaj-image-shimmer ${loaded ? 'is-loaded' : ''}`} aria-hidden="true" />
+      <video
+        ref={videoRef}
+        className={`xaaj-shimmer-image ${loaded ? 'is-loaded' : ''}`}
+        src={src}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        aria-label={alt}
+        onLoadedData={() => setLoaded(true)}
+        onCanPlay={() => setLoaded(true)}
+        onError={() => {
+          setLoaded(false)
+          setFailed(true)
+        }}
+      />
+    </>
+  )
+}
+
 function XaajCategoryHeroMedia({
   url,
   alt,
@@ -2180,11 +2270,10 @@ function Home() {
     ...(categoryHeroMedia[category.slug] || {})
   }))
 
-  // Brand Story media is CMS-controlled.
-  // Removing the CMS media only removes the uploaded post; the Brand Story
-  // section itself remains visible and falls back to the original table image.
+  // Brand Story media is CMS-controlled only.
+  // If no CMS image/video is configured, the existing shimmer remains visible.
   const [brandStoryMedia, setBrandStoryMedia] = useState({
-    url: tableImage,
+    url: '',
     mediaType: 'image',
     alt: 'XAAJ handcrafted tableware arranged on a linen table',
     enabled: true
@@ -2231,16 +2320,12 @@ function Home() {
               ? Boolean(item.isActive)
               : true
 
-        // When Brand Story media is removed from Admin, keep the section
-        // visible and fall back to the original table image.
+        // Never substitute a hardcoded stock image when CMS media is absent.
         setBrandStoryMedia({
-          url:
-            url ||
-            tableImage,
-          mediaType: getBrandStoryMediaType(
-            url || tableImage,
-            item?.mediaType
-          ),
+          url,
+          mediaType: url
+            ? getBrandStoryMediaType(url, item?.mediaType)
+            : 'image',
           alt:
             item?.alt ||
             item?.title ||
@@ -2264,9 +2349,8 @@ function Home() {
     }
   }, [])
 
-  // Horeca collection media is CMS-controlled by stable slots.
-  // The original images remain the fallback when CMS data is unavailable
-  // or a slot has been cleared from Admin.
+  // Festive Gifting media is CMS-controlled by stable slots.
+  // Empty or cleared CMS slots keep the shimmer instead of a hardcoded image.
   const [horecaMedia, setHorecaMedia] = useState(horecaDefaultMedia)
 
   useEffect(() => {
@@ -2296,7 +2380,11 @@ function Home() {
               }))
             : []
 
-        const next = { ...horecaDefaultMedia }
+        const next = {
+          main: { ...horecaDefaultMedia.main },
+          sideOne: { ...horecaDefaultMedia.sideOne },
+          sideTwo: { ...horecaDefaultMedia.sideTwo }
+        }
 
         list.forEach(item => {
           if (!item || item.enabled === false) return
@@ -3758,6 +3846,25 @@ function Home() {
               height:16px;
             }
           }
+
+          /* Match Drinkware / Serveware / Dinnerware / Gifting / B2B
+             card labels to the existing "Festive Gifting" label typography only. */
+          .xaaj-reference-hero .xaaj-reference-hero-label,
+          .xaaj-reference-hero .xaaj-reference-hero-label > span {
+            font-family: 'Gotham Book', 'Gotham', Arial, sans-serif !important;
+            font-size: 21px !important;
+            font-weight: 400 !important;
+            line-height: 1 !important;
+            letter-spacing: normal !important;
+          }
+
+          @media (max-width: 520px) {
+            .xaaj-reference-hero .xaaj-reference-hero-label,
+            .xaaj-reference-hero .xaaj-reference-hero-label > span {
+              font-size: 18px !important;
+            }
+          }
+
         `}</style>
 
         <section
@@ -3951,17 +4058,12 @@ function Home() {
           <div className="xaaj-brand-story-split-inner">
             <Link className="xaaj-brand-story-split-media" to="/story" aria-label="Read the full XAAJ brand story">
               {brandStoryMedia.mediaType === 'video' ? (
-                <video
+                <XaajShimmerVideo
                   src={brandStoryMedia.url}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  aria-label={brandStoryMedia.alt}
+                  alt={brandStoryMedia.alt}
                 />
               ) : (
-                <img
+                <XaajShimmerImage
                   src={brandStoryMedia.url}
                   alt={brandStoryMedia.alt}
                   loading="lazy"
@@ -4015,6 +4117,50 @@ function Home() {
           </div>
 
           <style>{`
+            /* Loading shimmer for Brand Story and Festive Gifting images only. */
+            .xaaj-brand-story-homepage .xaaj-brand-story-split-media,
+            .xaaj-horeca-bundled .xaaj-horeca-bundled-media,
+            .xaaj-horeca-bundled .xaaj-horeca-bundled-small{
+              position:relative;
+            }
+            .xaaj-image-shimmer{
+              position:absolute;
+              inset:0;
+              z-index:1;
+              display:block;
+              overflow:hidden;
+              pointer-events:none;
+              background:#e9e5dd;
+              opacity:1;
+              visibility:visible;
+              transition:opacity .4s ease, visibility 0s linear .4s;
+            }
+            .xaaj-image-shimmer::after{
+              content:'';
+              position:absolute;
+              inset:0;
+              transform:translateX(-100%);
+              background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.62) 50%,transparent 65%);
+              animation:xaajEditorialImageShimmer 1.8s ease-in-out infinite;
+            }
+            .xaaj-image-shimmer.is-loaded{
+              opacity:0;
+              visibility:hidden;
+            }
+            .xaaj-shimmer-image{
+              opacity:0!important;
+              transition:opacity .45s ease, transform .9s cubic-bezier(.22,1,.36,1)!important;
+            }
+            .xaaj-shimmer-image.is-loaded{
+              opacity:1!important;
+            }
+            .xaaj-horeca-bundled .xaaj-shimmer-image{
+              transition:opacity .45s ease, transform .7s cubic-bezier(.22,1,.36,1)!important;
+            }
+            @keyframes xaajEditorialImageShimmer{
+              to{transform:translateX(100%)}
+            }
+
             .xaaj-brand-story-homepage{
               background:#ffffff!important;
               border-top:0!important;
@@ -4242,7 +4388,7 @@ function Home() {
                 aria-label="Explore Festive Gifting"
               >
                 <div className="xaaj-horeca-bundled-media">
-                  <img
+                  <XaajShimmerImage
                     src={horecaMedia.main.url}
                     alt={horecaMedia.main.alt}
                     loading="lazy"
@@ -4260,7 +4406,7 @@ function Home() {
                   className="xaaj-horeca-bundled-small"
                   aria-label="Explore Festive Gifting"
                 >
-                  <img
+                  <XaajShimmerImage
                     src={horecaMedia.sideOne.url}
                     alt={horecaMedia.sideOne.alt}
                     loading="lazy"
@@ -4272,7 +4418,7 @@ function Home() {
                   className="xaaj-horeca-bundled-small"
                   aria-label="Explore Festive Gifting"
                 >
-                  <img
+                  <XaajShimmerImage
                     src={horecaMedia.sideTwo.url}
                     alt={horecaMedia.sideTwo.alt}
                     loading="lazy"
@@ -6652,7 +6798,7 @@ function Footer() {
         <div className="xaaj-reference-footer-brand">
           <h3>XAAJ</h3>
           <div className="xaaj-reference-footer-brand-rule" aria-hidden="true" />
-          <p>Contemporary crockery rooted in the colours, crafts and everyday beauty of India.</p>
+          <p>Thoughtfully designed tableware for the moments that bring us together.</p>
         </div>
 
         <div className="xaaj-reference-footer-contact">
@@ -7752,17 +7898,17 @@ function Product() {
                   }
 
                   .xaaj-product-accordions details[open] summary {
-                    color: #2f7048;
+                    color: #b84d38;
                   }
 
                   .xaaj-product-accordions details[open] summary::after {
                     content: '−';
                     transform: rotate(180deg);
-                    color: #2f7048;
+                    color: #b84d38;
                   }
 
                   .xaaj-product-accordions summary:hover {
-                    color: #2f7048;
+                    color: #b84d38;
                   }
 
                   .xaaj-product-accordions p {
@@ -7841,12 +7987,20 @@ function Product() {
 
           {relatedProducts.length > 0 && (
             <section
-              className="wrap"
+              className="wrap xaaj-related-products-section"
               style={{
                 marginTop: '90px',
                 marginBottom: '30px'
               }}
             >
+              <style>{`
+                /* Match the Related products heading typeface to the product accordions,
+                   without changing typography anywhere else on the site. */
+                .xaaj-related-products-section .section-heading h2 {
+                  font-family: 'Gotham Book', 'Gotham', Arial, sans-serif !important;
+                  font-weight: 500 !important;
+                }
+              `}</style>
               <SectionHeading
                 eyebrow="You may also like"
                 title="Related products"
