@@ -9,7 +9,7 @@
 //   'http://localhost:7100/api'
 // ).replace(/\/$/, '')
 
-const API_URL = 'https://crockery-e-commer-iqwq.vercel.app/api'
+const API_URL = 'https://xaaj-crockery-backend.vercel.app//api'
 
 //const API_URL = 'http://localhost:7100/api'
 // ============================================================
