@@ -7490,6 +7490,7 @@ function Product() {
     add,
     products: liveProducts
   } = useStore()
+  const { user } = useAuth()
   const { pathname } = useLocation()
 
   // This app uses manual pathname routing (not <Route> components),
@@ -7503,6 +7504,154 @@ function Product() {
   const [selectedImage, setSelectedImage] = useState('')
   const [qty, setQty] = useState(1)
   const [detailCartPulse, setDetailCartPulse] = useState(false)
+
+  // Product reviews are loaded from the API so they persist across sessions.
+  const [productReviews, setProductReviews] = useState([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState('')
+  const [reviewOrders, setReviewOrders] = useState([])
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewOrderId, setReviewOrderId] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewFormMessage, setReviewFormMessage] = useState('')
+  const [reviewFormError, setReviewFormError] = useState('')
+
+  const getReviewList = result => {
+    const payload = result?.data ?? result
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.reviews)) return payload.reviews
+    if (Array.isArray(payload?.data)) return payload.data
+    return []
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    const productId = product?._id || product?.id
+    if (!productId) return undefined
+
+    async function loadProductReviews() {
+      setReviewsLoading(true)
+      setReviewsError('')
+      try {
+        const result = await reviewService.getProductReviews(productId)
+        if (!cancelled) setProductReviews(getReviewList(result))
+      } catch (error) {
+        if (!cancelled) {
+          setReviewsError(error?.message || 'Reviews could not be loaded right now.')
+          setProductReviews([])
+        }
+      } finally {
+        if (!cancelled) setReviewsLoading(false)
+      }
+    }
+
+    loadProductReviews()
+    return () => { cancelled = true }
+  }, [product?._id, product?.id])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user) {
+      setReviewOrders([])
+      setReviewOrderId('')
+      return undefined
+    }
+
+    async function loadEligibleOrders() {
+      try {
+        const result = await orderService.list()
+        const payload = result?.data ?? result
+        const orders = Array.isArray(payload) ? payload : (payload?.orders || [])
+        const productId = String(product?._id || product?.id || '')
+        const eligible = orders.filter(order => {
+          const status = String(order?.status || order?.orderStatus || '').toLowerCase()
+          const delivered = status === 'delivered'
+          const alreadyReviewed = (Array.isArray(order?.items) ? order.items : []).some(item =>
+            String(item?.product?._id || item?.product || item?.productId || item?._id || '') === productId &&
+            (item?.reviewSubmitted || item?.reviewId)
+          )
+          const containsProduct = (Array.isArray(order?.items) ? order.items : []).some(item =>
+            String(item?.product?._id || item?.product || item?.productId || item?._id || '') === productId
+          )
+          return delivered && containsProduct && !alreadyReviewed
+        })
+        if (!cancelled) {
+          setReviewOrders(eligible)
+          setReviewOrderId(current => eligible.some(order => String(order._id || order.id) === String(current))
+            ? current
+            : String(eligible[0]?._id || eligible[0]?.id || ''))
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Unable to load eligible review orders:', error)
+          setReviewOrders([])
+        }
+      }
+    }
+
+    if (product?._id || product?.id) loadEligibleOrders()
+    return () => { cancelled = true }
+  }, [user, product?._id, product?.id, productReviews.length])
+
+  const handleProductReviewSubmit = async event => {
+    event.preventDefault()
+    setReviewFormError('')
+    setReviewFormMessage('')
+
+    if (!user) {
+      setReviewFormError('Please sign in to leave a review.')
+      return
+    }
+    if (!reviewOrderId) {
+      setReviewFormError('Only customers with a delivered order of this product can leave a review.')
+      return
+    }
+    if (!reviewRating) {
+      setReviewFormError('Please select a rating from 1 to 5 stars.')
+      return
+    }
+    if (!reviewComment.trim()) {
+      setReviewFormError('Please write a short comment before submitting.')
+      return
+    }
+
+    try {
+      setReviewSubmitting(true)
+      const result = await reviewService.create({
+        orderId: reviewOrderId,
+        productId: product?._id || product?.id,
+        rating: reviewRating,
+        comment: reviewComment.trim()
+      })
+      setReviewFormMessage(result?.message || result?.data?.message || 'Thank you. Your review has been submitted.')
+      setReviewRating(0)
+      setReviewComment('')
+      const refreshed = await reviewService.getProductReviews(product?._id || product?.id)
+      setProductReviews(getReviewList(refreshed))
+      const ordersResult = await orderService.list()
+      const orderPayload = ordersResult?.data ?? ordersResult
+      const orders = Array.isArray(orderPayload) ? orderPayload : (orderPayload?.orders || [])
+      const productId = String(product?._id || product?.id || '')
+      setReviewOrders(orders.filter(order => {
+        const status = String(order?.status || order?.orderStatus || '').toLowerCase()
+        const items = Array.isArray(order?.items) ? order.items : []
+        const containsProduct = items.some(item =>
+          String(item?.product?._id || item?.product || item?.productId || item?._id || '') === productId
+        )
+        const alreadyReviewed = items.some(item =>
+          String(item?.product?._id || item?.product || item?.productId || item?._id || '') === productId &&
+          (item?.reviewSubmitted || item?.reviewId)
+        )
+        return status === 'delivered' && containsProduct && !alreadyReviewed
+      }))
+      setReviewOrderId('')
+    } catch (error) {
+      setReviewFormError(error?.data?.message || error?.message || 'Unable to submit your review. Please try again.')
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -7985,6 +8134,113 @@ function Product() {
 
           </div>
 
+          {/* Customer reviews: publicly visible, with writing restricted to signed-in customers with a delivered order. */}
+          <section className="xaaj-product-reviews" aria-labelledby="xaaj-product-reviews-title">
+            <style>{`
+              .xaaj-product-reviews{margin:72px 0 40px;padding:42px 0;border-top:1px solid #e9e5df;border-bottom:1px solid #e9e5df;color:#302d28}
+              .xaaj-product-reviews-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:28px}
+              .xaaj-product-reviews-kicker{display:block;margin-bottom:10px;font:10px 'Gotham Book','Gotham',Arial,sans-serif;letter-spacing:1.8px;text-transform:uppercase;color:#8b8177}
+              .xaaj-product-reviews h2{margin:0;font:400 clamp(27px,3vw,38px)/1.12 'Gotham Book','Gotham',Arial,sans-serif;letter-spacing:-.025em}
+              .xaaj-product-reviews-summary{font-size:12px;color:#716c65}
+              .xaaj-review-layout{display:grid;grid-template-columns:minmax(0, .85fr) minmax(0, 1.15fr);gap:48px;align-items:start}
+              .xaaj-review-form{padding:25px;background:#faf9f6;border:1px solid #e9e5df}
+              .xaaj-review-form h3{margin:0 0 8px;font:400 22px 'Gotham Book','Gotham',Arial,sans-serif}
+              .xaaj-review-form p{margin:0 0 18px;color:#716c65;font-size:12px;line-height:1.7}
+              .xaaj-review-stars{display:flex;gap:5px;margin:0 0 18px}
+              .xaaj-review-stars button{border:0;background:transparent;padding:2px;color:#b9b0a5;font-size:28px;line-height:1;cursor:pointer}
+              .xaaj-review-stars button.is-selected{color:#b84d38}
+              .xaaj-review-form label{display:block;margin:0 0 8px;font-size:11px;color:#575149}
+              .xaaj-review-form select,.xaaj-review-form textarea{width:100%;box-sizing:border-box;margin:0 0 16px;border:1px solid #d9d3ca;border-radius:0;background:#fff;padding:12px;color:#302d28;font:12px 'Gotham Book','Gotham',Arial,sans-serif}
+              .xaaj-review-form textarea{min-height:110px;resize:vertical;line-height:1.65}
+              .xaaj-review-submit{width:100%;min-height:45px;border:1px solid #302d28;background:#302d28;color:white;font-size:10px;letter-spacing:1.3px;text-transform:uppercase;cursor:pointer}
+              .xaaj-review-submit:disabled{opacity:.55;cursor:not-allowed}
+              .xaaj-review-notice{font-size:12px;line-height:1.6;margin:10px 0 0!important}
+              .xaaj-review-notice.error{color:#a33e2d}
+              .xaaj-review-notice.success{color:#426b49}
+              .xaaj-review-list{display:flex;flex-direction:column}
+              .xaaj-review-item{padding:0 0 22px;margin:0 0 22px;border-bottom:1px solid #ece8e2}
+              .xaaj-review-item:last-child{margin-bottom:0}
+              .xaaj-review-item-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+              .xaaj-review-item-stars{color:#b84d38;letter-spacing:2px;font-size:13px}
+              .xaaj-review-item-date{color:#8b8177;font-size:10px}
+              .xaaj-review-author{margin:0 0 8px;font-size:12px;font-weight:600}
+              .xaaj-review-comment{margin:0;color:#615b53;font-size:13px;line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
+              .xaaj-review-empty{padding:24px 0;color:#716c65;font-size:13px;line-height:1.8}
+              @media(max-width:700px){.xaaj-product-reviews{margin-top:48px;padding:30px 0}.xaaj-product-reviews-head{align-items:flex-start;flex-direction:column}.xaaj-review-layout{grid-template-columns:1fr;gap:30px}.xaaj-review-form{padding:20px}}
+            `}</style>
+            <div className="xaaj-product-reviews-head">
+              <div>
+                <span className="xaaj-product-reviews-kicker">Thoughts from our customers</span>
+                <h2 id="xaaj-product-reviews-title">Reviews &amp; experiences</h2>
+              </div>
+              <div className="xaaj-product-reviews-summary">
+                {productReviews.length} {productReviews.length === 1 ? 'review' : 'reviews'}
+              </div>
+            </div>
+
+            <div className="xaaj-review-layout">
+              <div className="xaaj-review-form">
+                <h3>Share your experience</h3>
+                {!user ? (
+                  <p>Please sign in and make sure your order has been delivered to write a review. All existing reviews remain visible to everyone.</p>
+                ) : reviewOrders.length === 0 ? (
+                  <p>Review writing is available to customers who have a delivered order of this product. If your order was just delivered, refresh this page after the order status updates.</p>
+                ) : (
+                  <form onSubmit={handleProductReviewSubmit}>
+                    <p>Your review helps other customers make an informed choice.</p>
+                    <label htmlFor="xaaj-review-order">Delivered order</label>
+                    <select id="xaaj-review-order" value={reviewOrderId} onChange={event => setReviewOrderId(event.target.value)} required>
+                      {reviewOrders.map(order => {
+                        const id = String(order._id || order.id)
+                        return <option key={id} value={id}>Order #{id.slice(-8).toUpperCase()}</option>
+                      })}
+                    </select>
+                    <label>Rating</label>
+                    <div className="xaaj-review-stars" role="radiogroup" aria-label="Choose a rating from 1 to 5">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button key={star} type="button" role="radio" aria-checked={reviewRating === star} aria-label={`${star} ${star === 1 ? 'star' : 'stars'}`} className={reviewRating >= star ? 'is-selected' : ''} onClick={() => setReviewRating(star)}>★</button>
+                      ))}
+                    </div>
+                    <label htmlFor="xaaj-review-comment">Your comment</label>
+                    <textarea id="xaaj-review-comment" value={reviewComment} onChange={event => setReviewComment(event.target.value)} maxLength={1500} placeholder="What did you like about this piece?" required />
+                    <button className="xaaj-review-submit" type="submit" disabled={reviewSubmitting}>
+                      {reviewSubmitting ? 'Submitting…' : 'Submit review'}
+                    </button>
+                  </form>
+                )}
+                {reviewFormError && <p className="xaaj-review-notice error" role="alert">{reviewFormError}</p>}
+                {reviewFormMessage && <p className="xaaj-review-notice success" role="status">{reviewFormMessage}</p>}
+              </div>
+
+              <div className="xaaj-review-list" aria-live="polite">
+                {reviewsLoading ? (
+                  <div className="xaaj-review-empty">Loading customer reviews…</div>
+                ) : reviewsError ? (
+                  <div className="xaaj-review-empty">{reviewsError}</div>
+                ) : productReviews.length === 0 ? (
+                  <div className="xaaj-review-empty">No written reviews yet. Be the first eligible customer to share an experience.</div>
+                ) : productReviews.map((review, index) => {
+                  const rating = Math.max(0, Math.min(5, Number(review.rating) || 0))
+                  const createdAt = review.createdAt || review.updatedAt
+                  const dateLabel = createdAt && !Number.isNaN(new Date(createdAt).getTime())
+                    ? new Date(createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : ''
+                  const author = review.user?.name || review.customer?.name || review.name || 'Verified customer'
+                  return (
+                    <article className="xaaj-review-item" key={review._id || review.id || `${author}-${index}`}>
+                      <div className="xaaj-review-item-top">
+                        <span className="xaaj-review-item-stars" aria-label={`${rating} out of 5 stars`}>{'★'.repeat(rating)}{'☆'.repeat(5 - rating)}</span>
+                        {dateLabel && <time className="xaaj-review-item-date" dateTime={createdAt}>{dateLabel}</time>}
+                      </div>
+                      <p className="xaaj-review-author">{author}</p>
+                      <p className="xaaj-review-comment">{review.comment || 'Customer left a rating without a written comment.'}</p>
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
           {relatedProducts.length > 0 && (
             <section
               className="wrap xaaj-related-products-section"
@@ -8043,6 +8299,9 @@ function Cart({
     add
   } = useStore()
 
+  const [quantityDiscountNotice, setQuantityDiscountNotice] = useState('')
+  const previousQuantityDiscounts = useRef(new Set())
+
   const items = wishlist
     ? liveProducts.filter(product => wish.includes(product.id || product._id))
     : cart
@@ -8059,19 +8318,113 @@ function Cart({
     return `/product/${encodeURIComponent(String(identifier || ''))}`
   }
 
+  const quantityDiscountDetails = wishlist
+    ? []
+    : cart.map(item => {
+        const product = liveProducts.find(
+          entry =>
+            String(entry.id || entry._id) === String(item.id || item._id)
+        ) || item
+        const quantity = Math.max(1, Number(item.qty) || 1)
+        const unitPrice = Math.max(0, Number(product.price ?? item.price) || 0)
+        const setting = product.quantityDiscount || item.quantityDiscount || {}
+        const enabled = setting.enabled === true
+        const minQuantity = Math.max(2, Number(setting.minQuantity) || 2)
+        const percent = Math.min(100, Math.max(0, Number(setting.discountPercent) || 0))
+        const qualifies = enabled && percent > 0 && quantity >= minQuantity
+        const savings = qualifies ? Math.round(unitPrice * quantity * percent / 100 * 100) / 100 : 0
+
+        return {
+          id: String(item.id || item._id),
+          name: product.name || item.name || 'Product',
+          quantity,
+          minQuantity,
+          percent,
+          enabled,
+          qualifies,
+          savings
+        }
+      })
+
+  const quantityDiscountTotal = quantityDiscountDetails.reduce(
+    (sum, item) => sum + item.savings,
+    0
+  )
+  const discountedSubtotal = Math.max(0, total - quantityDiscountTotal)
   const shippingFee = total >= 1000 ? 0 : 99
-  const grandTotal = total + shippingFee
+  const grandTotal = discountedSubtotal + shippingFee
   const freeShippingProgress = Math.min(100, (total / 1000) * 100)
   const remainingForFreeShipping = Math.max(0, 1000 - total)
+
+  useEffect(() => {
+    if (wishlist) return
+
+    const currentQualifying = new Set(
+      quantityDiscountDetails
+        .filter(item => item.qualifies)
+        .map(item => item.id)
+    )
+    const newlyQualified = quantityDiscountDetails.find(
+      item => item.qualifies && !previousQuantityDiscounts.current.has(item.id)
+    )
+
+    if (newlyQualified) {
+      setQuantityDiscountNotice(
+        `${newlyQualified.name}: ${newlyQualified.percent}% quantity discount applied. You save ${money(newlyQualified.savings)}.`
+      )
+    } else if (
+      previousQuantityDiscounts.current.size > 0 &&
+      quantityDiscountDetails.some(
+        item => previousQuantityDiscounts.current.has(item.id) && !item.qualifies
+      )
+    ) {
+      setQuantityDiscountNotice('Quantity discount removed because the minimum quantity is no longer met.')
+    }
+
+    previousQuantityDiscounts.current = currentQualifying
+  }, [wishlist, cart, liveProducts])
 
   return (
     <>
       <Header />
 
       <main className={`page xaaj-cart-page ${wishlist ? 'xaaj-wishlist-page' : ''}`}>
+        {!wishlist && quantityDiscountNotice && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="xaaj-quantity-discount-toast"
+          >
+            <span>{quantityDiscountNotice}</span>
+            <button
+              type="button"
+              aria-label="Dismiss quantity discount message"
+              onClick={() => setQuantityDiscountNotice('')}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
         <style>{`
+          .xaaj-quantity-discount-toast{
+            position:fixed;top:22px;right:22px;z-index:2147483000;
+            max-width:min(420px,calc(100vw - 32px));display:flex;gap:14px;
+            align-items:center;padding:14px 16px;background:#302d28;color:#fff;
+            box-shadow:0 12px 32px rgba(0,0,0,.18);font-size:13px;line-height:1.5;
+          }
+          .xaaj-quantity-discount-toast button{
+            border:0;background:transparent;color:inherit;display:grid;
+            place-items:center;padding:2px;cursor:pointer;flex:0 0 auto;
+          }
+          .xaaj-quantity-discount-line{
+            margin-top:7px;color:#55744d;font-size:12px;line-height:1.5;
+          }
+
           .xaaj-cart-page {
             background: #ffffff !important;
+          }
+          .xaaj-quantity-discount-summary strong {
+            color: #55744d !important;
           }
         `}</style>
         <div className="wrap">
@@ -8146,6 +8499,14 @@ function Cart({
                     const name = product.name || item.name
                     const category = product.category || item.category
                     const price = Number(product.price ?? item.price ?? 0)
+                    const quantityDiscount = product.quantityDiscount || item.quantityDiscount || {}
+                    const quantityDiscountEnabled = quantityDiscount.enabled === true
+                    const quantityDiscountMin = Math.max(2, Number(quantityDiscount.minQuantity) || 2)
+                    const quantityDiscountPercent = Math.min(100, Math.max(0, Number(quantityDiscount.discountPercent) || 0))
+                    const quantityDiscountActive = !wishlist && quantityDiscountEnabled && quantityDiscountPercent > 0 && qty >= quantityDiscountMin
+                    const itemSavings = quantityDiscountActive
+                      ? Math.round(price * qty * quantityDiscountPercent / 100 * 100) / 100
+                      : 0
 
                     return (
                       <article className="xaaj-shopping-item" key={item.id || item._id}>
@@ -8176,6 +8537,13 @@ function Cart({
                           </Link>
 
                           <p className="xaaj-item-price">{money(price)}</p>
+                          {!wishlist && quantityDiscountEnabled && quantityDiscountPercent > 0 && (
+                            <p className="xaaj-quantity-discount-line">
+                              {quantityDiscountActive
+                                ? `${quantityDiscountPercent}% quantity discount applied — saving ${money(itemSavings)}`
+                                : `Buy ${Math.max(0, quantityDiscountMin - qty)} more to unlock ${quantityDiscountPercent}% off`}
+                            </p>
+                          )}
 
                           <div className="xaaj-item-actions">
                             {!wishlist ? (
@@ -8214,7 +8582,7 @@ function Cart({
                         </div>
 
                         <strong className="xaaj-item-total">
-                          {money(price * qty)}
+                          {money(Math.max(0, price * qty - itemSavings))}
                         </strong>
                       </article>
                     )
@@ -8230,6 +8598,12 @@ function Cart({
 
                   <div className="xaaj-summary-lines">
                     <div><span>Subtotal</span><strong>{money(total)}</strong></div>
+                    {quantityDiscountTotal > 0 && (
+                      <div className="xaaj-quantity-discount-summary">
+                        <span>Quantity savings</span>
+                        <strong>−{money(quantityDiscountTotal)}</strong>
+                      </div>
+                    )}
                     <div>
                       <span>Shipping</span>
                       <strong>{shippingFee === 0 ? 'Complimentary' : money(shippingFee)}</strong>
@@ -13756,7 +14130,7 @@ function App() {
               )}
           </div>
 
-          {reviewingItem && (
+          {reviewingItem && createPortal(
             <div
               role="dialog"
               aria-modal="true"
@@ -13765,13 +14139,14 @@ function App() {
                 if (event.target === event.currentTarget) closeReviewForm()
               }}
               style={{
-                position: 'fixed', inset: 0, zIndex: 99999, display: 'flex',
+                position: 'fixed', inset: 0, zIndex: 2147483647, display: 'flex',
                 alignItems: 'center', justifyContent: 'center', padding: '20px',
-                background: 'rgba(35,32,28,.48)', backdropFilter: 'blur(8px)'
+                overflowY: 'auto', background: 'rgba(35,32,28,.48)', backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)', boxSizing: 'border-box'
               }}
             >
               <div style={{
-                position: 'relative', width: 'min(100%, 480px)', padding: '30px',
+                position: 'relative', width: 'min(100%, 480px)', maxHeight: 'calc(100dvh - 40px)', overflowY: 'auto', padding: '30px', boxSizing: 'border-box', flexShrink: 0,
                 border: '1px solid #e8e0d5', borderRadius: '24px',
                 background: '#fffdf9', boxShadow: '0 30px 80px rgba(41,40,37,.22)'
               }}>
@@ -13839,7 +14214,8 @@ function App() {
                   </button>
                 </form>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </SimplePage>
       )

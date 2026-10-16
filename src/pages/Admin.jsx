@@ -10,7 +10,8 @@ import {
   FiLogOut,
   FiExternalLink,
   FiPlus,
-  FiRefreshCw
+  FiRefreshCw,
+  FiDownload
 } from 'react-icons/fi'
 import { adminService } from '../services/adminService'
 import { apiRequest } from '../services/api'
@@ -192,6 +193,11 @@ export default function Admin() {
     discountPercent: 0,
     price: '',
     showDiscountPercent: true,
+    quantityDiscount: {
+      enabled: false,
+      minQuantity: 2,
+      discountPercent: 10
+    },
     stock: '',
     shipping: { weight: '', length: '', breadth: '', height: '' },
     images: [''],
@@ -1238,6 +1244,106 @@ export default function Admin() {
       .replace(/_/g, ' ')
       .replace(/\b\w/g, char => char.toUpperCase())
 
+
+  // Open a print-ready order invoice. The browser print dialog lets the admin
+  // save the invoice as a PDF without adding a new PDF dependency.
+  const handleDownloadInvoice = order => {
+    const invoiceWindow = window.open('', '_blank')
+
+    if (!invoiceWindow) {
+      setError('Please allow pop-ups for this site to download the invoice.')
+      return
+    }
+
+    const escapeHtml = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+
+    const money = value => `₹${Number(value || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`
+
+    const orderId = String(order?._id || '').slice(-8).toUpperCase()
+    const createdAt = order?.createdAt ? new Date(order.createdAt) : new Date()
+    const invoiceNumber = `XAAJ-${createdAt.getFullYear()}-${orderId || 'ORDER'}`
+    const address = order?.shippingAddress || {}
+    const items = Array.isArray(order?.items) ? order.items : []
+    const itemRows = items.map(item => {
+      const quantity = Number(item?.quantity || 0)
+      const unitPrice = Number(item?.price || 0)
+      return `
+        <tr>
+          <td>${escapeHtml(item?.name || 'Product')}</td>
+          <td class="number">${quantity}</td>
+          <td class="number">${money(unitPrice)}</td>
+          <td class="number">${money(unitPrice * quantity)}</td>
+        </tr>`
+    }).join('')
+
+    const subtotal = Number(order?.subtotal ?? items.reduce(
+      (sum, item) => sum + Number(item?.price || 0) * Number(item?.quantity || 0), 0
+    ))
+    const discount = Number(order?.discount || 0)
+    const shippingFee = Number(order?.shippingFee || 0)
+    const total = Number(order?.total ?? subtotal - discount + shippingFee)
+    const fullAddress = [
+      address.address,
+      address.city,
+      address.state,
+      address.pin
+    ].filter(Boolean).join(', ')
+
+    invoiceWindow.document.open()
+    invoiceWindow.document.write(`<!doctype html>
+      <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${escapeHtml(invoiceNumber)} - XAAJ Order Invoice</title>
+        <style>
+          *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#28251f;margin:0;padding:36px;background:#fff;font-size:13px;line-height:1.5}
+          .invoice{max-width:820px;margin:0 auto}.top{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #183526;padding-bottom:22px;margin-bottom:24px}
+          .brand{font-family:Georgia,serif;font-size:32px;letter-spacing:5px;margin:0}.muted{color:#777}.meta{text-align:right}.meta h2{margin:0 0 8px;font-size:21px;letter-spacing:1px}
+          .columns{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px}.label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#8b6a43;font-weight:700;margin-bottom:7px}
+          h3{font-size:14px;margin:0 0 8px}p{margin:3px 0;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse;margin:16px 0 20px}th{text-align:left;background:#f5f1ea;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+          th,td{padding:12px 10px;border-bottom:1px solid #e8e2d9}th.number,td.number{text-align:right;white-space:nowrap}.totals{width:min(100%,340px);margin-left:auto}.totals div{display:flex;justify-content:space-between;gap:20px;padding:7px 0}.grand{font-weight:700;font-size:17px;border-top:2px solid #183526;margin-top:5px;padding-top:12px!important}.footer{border-top:1px solid #e8e2d9;margin-top:38px;padding-top:16px;text-align:center;color:#777;font-size:11px}
+          .print-actions{max-width:820px;margin:0 auto 18px;display:flex;justify-content:flex-end}.print-actions button{background:#183526;color:white;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+          @media print{body{padding:0}.print-actions{display:none}.invoice{max-width:none}@page{size:A4;margin:16mm}}
+          @media(max-width:560px){body{padding:18px}.top{flex-direction:column}.meta{text-align:left}.columns{grid-template-columns:1fr}}
+        </style>
+      </head>
+      <body>
+        <div class="print-actions"><button onclick="window.print()">Print / Save as PDF</button></div>
+        <main class="invoice">
+          <header class="top">
+            <div><h1 class="brand">XAAJ</h1><p class="muted">STORIES CRAFTED IN EARTH</p></div>
+            <div class="meta"><h2>ORDER INVOICE</h2><p><strong>Invoice No:</strong> ${escapeHtml(invoiceNumber)}</p><p><strong>Order No:</strong> #${escapeHtml(orderId || '—')}</p><p><strong>Date:</strong> ${escapeHtml(formatDate(order?.createdAt))}</p></div>
+          </header>
+          <section class="columns">
+            <div><div class="label">Bill to</div><h3>${escapeHtml(orderCustomer(order))}</h3><p>${escapeHtml(orderEmail(order))}</p><p>${escapeHtml(orderPhone(order))}</p></div>
+            <div><div class="label">Shipping address</div><p>${escapeHtml(fullAddress || '—')}</p><p><strong>Payment method:</strong> ${escapeHtml(order?.paymentProvider || '—')}</p><p><strong>Payment status:</strong> ${escapeHtml(order?.paymentStatus || 'pending')}</p><p><strong>Order status:</strong> ${escapeHtml(statusLabel(order?.status || 'pending'))}</p></div>
+          </section>
+          <div class="label">Items ordered</div>
+          <table><thead><tr><th>Product</th><th class="number">Qty</th><th class="number">Unit price</th><th class="number">Amount</th></tr></thead><tbody>${itemRows || '<tr><td colspan="4">No items found</td></tr>'}</tbody></table>
+          <section class="totals">
+            <div><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
+            ${discount > 0 ? `<div><span>Discount</span><strong>−${money(discount)}</strong></div>` : ''}
+            <div><span>Shipping</span><strong>${money(shippingFee)}</strong></div>
+            <div class="grand"><span>Total</span><strong>${money(total)}</strong></div>
+          </section>
+          <footer class="footer">Thank you for shopping with XAAJ.<br/>This document is generated from the order details available in the store system.</footer>
+        </main>
+        <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print() }, 350) })<\/script>
+      </body></html>`)
+    invoiceWindow.document.close()
+    invoiceWindow.focus()
+  }
+
   // =========================
   // Form Input Handler
   // =========================
@@ -1258,6 +1364,17 @@ export default function Admin() {
       shipping: {
         ...prev.shipping,
         [name]: value
+      }
+    }))
+  }
+
+  // Per-product quantity discount settings
+  const handleQuantityDiscountChange = (field, value) => {
+    setForm(prev => ({
+      ...prev,
+      quantityDiscount: {
+        ...prev.quantityDiscount,
+        [field]: value
       }
     }))
   }
@@ -1371,6 +1488,11 @@ export default function Admin() {
         product.showDiscountPercent !== undefined
           ? Boolean(product.showDiscountPercent)
           : true,
+      quantityDiscount: {
+        enabled: Boolean(product.quantityDiscount?.enabled),
+        minQuantity: product.quantityDiscount?.minQuantity ?? 2,
+        discountPercent: product.quantityDiscount?.discountPercent ?? 10
+      },
       stock: product.stock ?? '',
       shipping: {
         weight: product.shipping?.weight ?? '',
@@ -1473,6 +1595,26 @@ export default function Admin() {
         ? Math.round(mrp - (mrp * discountPercent) / 100)
         : mrp
 
+    const quantityDiscount = {
+      enabled: Boolean(form.quantityDiscount?.enabled),
+      minQuantity: Number(form.quantityDiscount?.minQuantity),
+      discountPercent: Number(form.quantityDiscount?.discountPercent)
+    }
+
+    if (quantityDiscount.enabled) {
+      if (!Number.isInteger(quantityDiscount.minQuantity) || quantityDiscount.minQuantity < 2) {
+        setError('Quantity discount minimum quantity must be a whole number of at least 2.')
+        return
+      }
+      if (!Number.isFinite(quantityDiscount.discountPercent) || quantityDiscount.discountPercent <= 0 || quantityDiscount.discountPercent > 100) {
+        setError('Quantity discount must be greater than 0% and no more than 100%.')
+        return
+      }
+    } else {
+      quantityDiscount.minQuantity = Math.max(2, Number(quantityDiscount.minQuantity) || 2)
+      quantityDiscount.discountPercent = Math.min(100, Math.max(0, Number(quantityDiscount.discountPercent) || 0))
+    }
+
     if (form.stock !== '' && Number(form.stock) < 0) {
       setError('Stock cannot be negative.')
       return
@@ -1523,6 +1665,7 @@ export default function Admin() {
       discountPercent,
       price: calculatedPrice,
       showDiscountPercent: Boolean(form.showDiscountPercent),
+      quantityDiscount,
       stock:
         form.stock === ''
           ? 0
@@ -3745,6 +3888,90 @@ export default function Admin() {
                 </div>
               </div>
 
+              {/* Quantity-based discount */}
+              <div
+                style={{
+                  marginTop: '18px',
+                  padding: '18px',
+                  border: '1px solid #d8e5d9',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #f7fbf6, #fffdf9)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '15px', marginBottom: '5px' }}>
+                      Quantity-based Discount
+                    </strong>
+                    <small>Give customers an extra discount when they buy multiple units of this product.</small>
+                  </div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.quantityDiscount?.enabled)}
+                      onChange={e => handleQuantityDiscountChange('enabled', e.target.checked)}
+                      style={{ width: 'auto', margin: 0 }}
+                    />
+                    Enable discount
+                  </label>
+                </div>
+
+                {form.quantityDiscount?.enabled && (
+                  <div style={{ marginTop: '18px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
+                      <div>
+                        <label htmlFor="quantity-discount-min">Minimum quantity in cart *</label>
+                        <input
+                          id="quantity-discount-min"
+                          type="number"
+                          min="2"
+                          step="1"
+                          value={form.quantityDiscount.minQuantity}
+                          onChange={e => handleQuantityDiscountChange('minQuantity', e.target.value)}
+                          required
+                        />
+                        <small>Discount starts when this product reaches this quantity.</small>
+                      </div>
+                      <div>
+                        <label htmlFor="quantity-discount-percent">Extra discount (%) *</label>
+                        <input
+                          id="quantity-discount-percent"
+                          type="number"
+                          min="0.01"
+                          max="100"
+                          step="0.01"
+                          value={form.quantityDiscount.discountPercent}
+                          onChange={e => handleQuantityDiscountChange('discountPercent', e.target.value)}
+                          required
+                        />
+                        <small>Applied to this product's selling price per eligible unit.</small>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '9px', background: '#edf5ed', color: '#285b35', fontSize: '13px', lineHeight: 1.6 }}>
+                      <strong>Example:</strong> Buy {Math.max(2, Number(form.quantityDiscount.minQuantity) || 2)} units and get {Math.min(100, Math.max(0, Number(form.quantityDiscount.discountPercent) || 0))}% extra off each unit. The discount will be removed automatically if cart quantity drops below the minimum.
+                    </div>
+                  </div>
+                )}
+                <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <small>Save the product to apply these settings. Existing products remain unchanged unless you enable this option.</small>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (form.quantityDiscount?.enabled && (!Number.isInteger(Number(form.quantityDiscount.minQuantity)) || Number(form.quantityDiscount.minQuantity) < 2 || !Number.isFinite(Number(form.quantityDiscount.discountPercent)) || Number(form.quantityDiscount.discountPercent) <= 0 || Number(form.quantityDiscount.discountPercent) > 100)) {
+                        setError('Enter a minimum quantity of at least 2 and a discount between 0% and 100%.')
+                        return
+                      }
+                      setError('')
+                      setMessage('Quantity discount settings are ready. Click Save Product to persist them.')
+                    }}
+                    style={{ padding: '9px 14px', fontSize: '12px' }}
+                  >
+                    Apply Settings
+                  </button>
+                </div>
+              </div>
+
               {/* Stock */}
               <label>
                 Stock
@@ -4120,12 +4347,21 @@ export default function Admin() {
                     <small>{formatDate(selectedOrder.createdAt)}</small>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedOrder(null)}
-                  >
-                    Close
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadInvoice(selectedOrder)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                    >
+                      <FiDownload aria-hidden="true" /> Download Invoice
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOrder(null)}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
 
                 <div
